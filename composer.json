@@ -1,8 +1,8 @@
 {
   "name": "gforces/active-record",
-  "description": "Simple Active Record based on PHP attributes",
+  "description": "Simple Active Record using PHP8 attributes",
   "license": "MIT",
-  "keywords": ["db", "orm", "active record"],
+  "keywords": ["db", "orm", "active record", "activerecord", "database", "model", "php8"],
   "homepage": "https://github.com/GForces-PL/ActiveRecord",
   "authors": [
     {
