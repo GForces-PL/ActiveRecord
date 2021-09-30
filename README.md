@@ -45,6 +45,8 @@ class Vehicle extends Base
 {
     #[Column] 
     public int $id;
+    #[Column]
+    public int $owner_id;
 
     #[BelongsTo]
     public Owner $owner;
