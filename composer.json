@@ -1,6 +1,7 @@
 {
   "name": "gforces/active-record",
   "description": "Simple Active Record based on PHP attributes",
+  "license": "MIT",
   "keywords": ["db", "orm", "active record"],
   "homepage": "https://github.com/GForces-PL/ActiveRecord",
   "authors": [
