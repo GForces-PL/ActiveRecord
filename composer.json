@@ -1,0 +1,22 @@
+{
+  "name": "gforces/active-record",
+  "description": "Simple Active Record based on PHP attributes",
+  "keywords": ["db", "orm", "active record"],
+  "homepage": "https://github.com/GForces-PL/ActiveRecord",
+  "authors": [
+    {
+      "name": "Michał Felski",
+      "email": "michal.felski@gforces.pl",
+      "role": "Developer"
+    }
+  ],
+  "autoload": {
+    "psr-4": {
+      "Gforces\\ActiveRecord\\": "src"
+    }
+  },
+  "require": {
+    "php": ">=8.0",
+    "ext-pdo": "*"
+  }
+}
