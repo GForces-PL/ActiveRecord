@@ -122,6 +122,29 @@ Vehicle::findFirstByAttribute($attribute, $value);
 Vehicle::findFirstByAttributes($attribute);
 ```
 
+### isNew property
+This is a built-in property that determines whether an object is stored in the database.
+
+### Access to modified attributes
+There is a special property $keepAttributeChanges set on each model that decides if the object should keep the original values. For performance reasons, this functionality is disabled by default.
+If it is enabled, each object has access to the original values that were loaded from the database. Additionally it also optimises UPDATE queries with only changed values and do not execute at all if no value was changed.
+```PHP
+use Gforces\ActiveRecord\Base;
+
+class Vehicle extends Base 
+{
+    protected static bool $keepAttributeChanges = true;
+    
+    public function isMakeChanged(): bool
+    {
+        return $this->isAttributeChanged('make');
+    }
+}
+
+$vehicle = Vehicle::find($id);
+$vehicle->save(); // UPDATE query is not executed
+```
+
 ## Known limitations
 
 - currently, no custom primary keys are supported. You must have an $id property to use all the features
