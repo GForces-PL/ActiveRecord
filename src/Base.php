@@ -15,7 +15,7 @@ class Base
     protected static Provider $connectionProvider;
 
     /**
-     * Set true if you need access to original values. It also optimise UPDATE queries and only changed values are updated.
+     * Set true if you need access to original values. It also optimises UPDATE queries with only changed values.
      */
     protected static bool $keepAttributeChanges = false;
 
