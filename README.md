@@ -61,9 +61,9 @@ class Owner extends Base
 $vehicle = new Vehicle;
 $vehicle->owner = new Owner();
 
-$owner = new Ow*ner();
+$owner = new Owner();
 $owner->vehicles = [new Vehicle()];
-$owner->vehicles[0]->make = 'BMW';*
+$owner->vehicles[0]->make = 'BMW';
 $owner->save(); // or $owner->vehicles[0]->save(); 
 ```
 
