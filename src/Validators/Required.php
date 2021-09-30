@@ -3,8 +3,8 @@
 
 namespace Gforces\ActiveRecord\Validators;
 
-use ActiveRecord\Base;
-use ActiveRecord\Validator;
+use Gforces\ActiveRecord\Base;
+use Gforces\ActiveRecord\Validator;
 use JetBrains\PhpStorm\Pure;
 
 #[\Attribute(\Attribute::TARGET_PROPERTY)]

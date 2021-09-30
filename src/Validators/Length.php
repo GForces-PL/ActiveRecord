@@ -3,23 +3,28 @@
 
 namespace Gforces\ActiveRecord\Validators;
 
-use ActiveRecord\Exception\Validation;
-use ActiveRecord\Base;
+use Gforces\ActiveRecord\Base;
+use Gforces\ActiveRecord\Exception\Validation;
+use Gforces\ActiveRecord\Validator;
 
 #[\Attribute(\Attribute::TARGET_PROPERTY)]
-class Length
+class Length extends Validator
 {
     const MESSAGE = '';
     const CODE = 1;
 
-    public function __construct(private ?int $min = null, private ?int $max = null, private string $message = self::MESSAGE)
+    public function __construct(private ?int $min = null, private ?int $max = null, protected string $message = self::MESSAGE)
     {
     }
 
-    public function perform(string $value)
+    protected function test(Base $object): bool
     {
-        if ((!is_null($this->min) && strlen($value) < $this->min) || (!is_null($this->max) && strlen($value) > $this->max)) {
-            $error = new Validation($this->message, self::CODE);
-        }
+        $value = $this->property->getValue($object);
+        return (is_null($this->min) || strlen($value) >= $this->min) && (is_null($this->max) || strlen($value) <= $this->max);
+    }
+
+    protected function getDefaultMessage(): string
+    {
+        return 'Invalid length of ' . $this->getPropertyName();
     }
 }
