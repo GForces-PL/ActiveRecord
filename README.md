@@ -40,6 +40,14 @@ $vehicle->save();
 
 Relationships are as simple as properties. We define it in a natural way by specifying the type and visibility of the property and add an attribute to indicate the type of the relationship.
 ```PHP
+class Vehicle extends Base
+{
+    #[Column] public int $id;
+
+    #[BelongsTo]
+    public Owner $owner;
+}
+
 class Owner extends Base
 {
     #[Column] public int $id;
@@ -50,9 +58,12 @@ class Owner extends Base
     public array $vehicles;
 }
 
-$owner = new Owner();
+$vehicle = new Vehicle;
+$vehicle->owner = new Owner();
+
+$owner = new Ow*ner();
 $owner->vehicles = [new Vehicle()];
-$owner->vehicles[0]->make = 'BMW';
+$owner->vehicles[0]->make = 'BMW';*
 $owner->save(); // or $owner->vehicles[0]->save(); 
 ```
 
