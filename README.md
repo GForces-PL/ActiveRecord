@@ -5,7 +5,8 @@ A new implementation of the Active Record pattern using Attributes available sin
 ## Main Features
 
 - no magic properties
-- no setters and getter needed
+- real types for properties instead of string
+- no setters and getters needed
 - objects created directly by PDO
 - lazy loaded relations
 - really fast
@@ -120,6 +121,7 @@ Vehicle::findAll($criteria, $orderBy, $limit, $offset, $select);
 Vehicle::findFirst($criteria, $orderBy);
 Vehicle::findFirstByAttribute($attribute, $value);
 Vehicle::findFirstByAttributes($attribute);
+Vehicle::findAllBySql($query, $params);
 ```
 
 ### isNew property
