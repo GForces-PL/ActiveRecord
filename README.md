@@ -12,13 +12,13 @@ A new implementation of the Active Record pattern using Attributes available sin
 
 ## Usage
 
-To use this implementation, any model reflecting a table in the database must inherit from the Gforces\ActiveRecord\Base class.
+To use this implementation, any model representing a table in the database, must inherit from the Gforces\ActiveRecord\Base class.
 
 ### Properties
 
 All properties that correspond to columns in the table should be marked with the Column attribute by adding the comment #[Column].
 You can define the property type and its visibility according to your needs.  
-Thats all!
+That's all!
 ```PHP
 use Gforces\ActiveRecord\Base;
 use Gforces\ActiveRecord\Column;
@@ -38,11 +38,12 @@ $vehicle->save();
 
 ### Relations
 
-Relationships are as simple as properties. We define it in a natural way by specifying the type and visibility of the property and add an attribute to indicate the type of the relationship.
+Relationships are as simple as properties. They are defined in a natural way by specifying the type and visibility of the property and add an attribute to indicate the type of the relationship.
 ```PHP
 class Vehicle extends Base
 {
-    #[Column] public int $id;
+    #[Column] 
+    public int $id;
 
     #[BelongsTo]
     public Owner $owner;
@@ -50,8 +51,10 @@ class Vehicle extends Base
 
 class Owner extends Base
 {
-    #[Column] public int $id;
-    #[Column] public string $name;
+    #[Column] 
+    public int $id;
+    #[Column] 
+    public string $name;
 
     #[HasMany]
     #[ArrayShape([Vehicle::class])]
@@ -109,9 +112,20 @@ If you want the connection to be created only when it is needed, it is better to
 Base::setConnectionProvider(new Dsn($dsn, $username, $password));
 ```
 
+### Finders
+The following finders are implemented as these were needed so far.
+```PHP
+Vehicle::find($id);
+Vehicle::findAll($criteria, $orderBy, $limit, $offset, $select);
+Vehicle::findFirst($criteria, $orderBy);
+Vehicle::findFirstByAttribute($attribute, $value);
+Vehicle::findFirstByAttributes($attribute);
+```
+
 ## Known limitations
 
-- currently, no custom primary key are supported. You must have an $id property to use all the features
-- not all relations implemented
-- not all validators implemented
+- currently, no custom primary keys are supported. You must have an $id property to use all the features
+- not all relations fully implemented
+- only few sample validators implemented
+- no documentation, but code is self-documenting
 - there is no tests :(
