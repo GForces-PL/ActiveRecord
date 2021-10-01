@@ -4,7 +4,6 @@
 namespace Gforces\ActiveRecord\Validators;
 
 use Gforces\ActiveRecord\Base;
-use Gforces\ActiveRecord\Exception\Validation;
 use Gforces\ActiveRecord\Validator;
 
 #[\Attribute(\Attribute::TARGET_PROPERTY)]
