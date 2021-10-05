@@ -28,37 +28,33 @@ class Base
     public static function find(int $id): static
     {
         // TODO: custom PK
-        $object = static::findFirstByAttribute('id', $id);
-        if (!$object) {
-            throw new Exception('object with id ' . $id . ' of type ' . static::class . ' not found');
-        }
-        return $object;
+        return static::findFirstByAttribute('id', $id)
+            ?: throw new Exception('object with id ' . $id . ' of type ' . static::class . ' not found');
     }
 
     #[ArrayShape([Base::class])]
     public static function findAll(string $criteria = '', string $orderBy = 'id ASC', int $limit = null, int $offset = null, string $select = '*'): array
     {
-        $query = static::buildQuery($criteria, $orderBy, $limit, $offset, $select);
-        return static::findAllBySql($query);
+        return static::findAllBySql(static::buildQuery($criteria, $orderBy, $limit, $offset, $select));
     }
 
     public static function findFirst(string $criteria = '', string $orderBy = ''): ?static
     {
-        $query = static::buildQuery($criteria, $orderBy, 1);
-        return static::findAllBySql($query)[0] ?? null;
+        return static::findAllBySql(static::buildQuery($criteria, $orderBy, 1))[0] ?? null;
     }
 
-    public static function findFirstByAttribute(string $attribute, mixed $value): ?static
+    public static function findFirstByAttribute(string $attribute, mixed $value, string $orderBy = ''): ?static
     {
-        $query = static::buildQuery("$attribute = ?", limit: 1);
-        return static::findAllBySql($query, [$value])[0] ?? null;
+        return static::findFirst(self::condition($attribute, $value), $orderBy);
     }
 
-    public static function findFirstByAttributes(array $attributes): ?static
+    public static function findFirstByAttributes(array $attributes, string $orderBy = ''): ?static
     {
-        $criteria = implode(' AND ', array_map(fn(string $attribute) => self::quoteIdentifier($attribute) . '=?', array_keys($attributes)));
-        $query = static::buildQuery($criteria, limit: 1);
-        return static::findAllBySql($query, array_values($attributes))[0] ?? null;
+        $criteria = implode(' AND ', array_map(
+            fn(string $attribute) => self::condition($attribute, $attributes[$attribute]),
+            array_keys($attributes))
+        );
+        return static::findFirst($criteria, $orderBy);
     }
 
     public static function findAllBySql(string $query, array $params = []): array
@@ -133,7 +129,12 @@ class Base
 
     protected static function condition(string $attribute, mixed $value): string
     {
-        return self::quoteIdentifier($attribute) . (is_null($value) ? ' IS NULL' : ' = ' . self::getConnection()->quote($value));
+        return self::quoteIdentifier($attribute) . match(gettype($value)) {
+            'boolean' => ' = ' . intval($value),
+            'integer' => ' = ' . $value,
+            'NULL' => ' IS NULL',
+            default => ' = ' . self::getConnection()->quote($value)
+        };
     }
 
     protected static function buildQuery(string $criteria = '', string $orderBy = '', int $limit = null, int $offset = null, $select = '*', string $joins = ''): string
@@ -152,7 +153,8 @@ class Base
         return $part ? " $prefix $part" : '';
     }
 
-    private static function getBindVariables(array $values) {
+    private static function getBindVariables(array $values): array
+    {
         return array_map(fn($value) => is_bool($value) ? (int) $value : $value, array_values($values));
     }
 

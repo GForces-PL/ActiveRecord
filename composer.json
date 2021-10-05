@@ -19,5 +19,8 @@
   "require": {
     "php": ">=8.0",
     "ext-pdo": "*"
+  },
+  "require-dev": {
+    "kahlan/kahlan": "^5.1.3"
   }
 }
