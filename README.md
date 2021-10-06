@@ -123,7 +123,7 @@ Vehicle::findAll($criteria, $orderBy, $limit, $offset, $select);
 Vehicle::findFirst($criteria, $orderBy);
 Vehicle::findFirstByAttribute($attribute, $value);
 Vehicle::findFirstByAttributes($attribute);
-Vehicle::findAllBySql($query, $params);
+Vehicle::findAllBySql($query);
 ```
 
 ### isNew property
@@ -155,4 +155,3 @@ $vehicle->save(); // UPDATE query is not executed
 - not all relations fully implemented
 - only few sample validators implemented
 - no documentation, but code is self-documenting
-- there is no tests :(

@@ -10,10 +10,6 @@ use PDO;
 
 class Base
 {
-    protected static Connection $connection;
-
-    protected static Provider $connectionProvider;
-
     /**
      * Set true if you need access to original values. It also optimises UPDATE queries with only changed values.
      */
@@ -21,8 +17,14 @@ class Base
 
     private static bool $createNewObject = true;
 
+    private static array $connections = [];
+
+    private static array $connectionProviders = [];
+
     public bool $isNew = true;
+
     protected array $errors = [];
+
     private array $originalValues = [];
 
     public static function find(int $id): static
@@ -57,28 +59,26 @@ class Base
         return static::findFirst($criteria, $orderBy);
     }
 
-    public static function findAllBySql(string $query, array $params = []): array
+    public static function findAllBySql(string $query): array
     {
         self::$createNewObject = false;
-        $statement = static::getConnection()->prepare($query);
-        $statement->execute($params);
-        $objects = $statement->fetchAll(PDO::FETCH_CLASS, static::class);
+        $objects = static::getConnection()->query($query)->fetchAll(PDO::FETCH_CLASS, static::class);
         self::$createNewObject = true;
         return $objects;
     }
 
     public static function count(string $criteria = ''): int
     {
-        $query = static::buildQuery($criteria, select: 'count(*)');
+        $query = static::buildQuery($criteria, select: 'COUNT(*)');
         return (int) static::getConnection()->query($query)->fetchColumn();
     }
 
     public static function insert(array $attributes, bool $ignoreDuplicates = false): void
     {
-        $table = static::getTableName();
+        $table = self::getQuotedTableName();
         $columns = implode(',', array_map([static::class, 'quoteIdentifier'], array_keys($attributes)));
-        $values = implode(',', array_fill(0, count($attributes), '?'));
-        static::getConnection()->prepare('INSERT ' . ($ignoreDuplicates ? 'IGNORE ' : '') .  "INTO $table ($columns) VALUES ($values)")->execute(self::getBindVariables($attributes));
+        $values = implode(',', self::quoteValues($attributes));
+        static::getConnection()->exec('INSERT ' . ($ignoreDuplicates ? 'IGNORE ' : '') . "INTO $table ($columns) VALUES ($values)");
     }
 
     public static function updateAll(array $attributes, string $condition = ''): void
@@ -86,14 +86,14 @@ class Base
         if (empty($attributes)) {
             return;
         }
-        $table = static::getTableName();
-        $columns = implode(',', array_map(fn($column) => static::quoteIdentifier($column) . ' = ?', array_keys($attributes)));
-        static::getConnection()->prepare("UPDATE $table SET $columns" . self::queryPart('WHERE', $condition))->execute(self::getBindVariables($attributes));
+        $table = self::getQuotedTableName();
+        $values = implode(', ', array_map(fn($attribute, $value) => static::quoteIdentifier($attribute) . ' = ' . self::quoteValue($value), array_keys($attributes), array_values($attributes)));
+        static::getConnection()->exec("UPDATE $table SET $values" . self::queryPart('WHERE', $condition));
     }
 
     public static function setConnection(Connection $connection): void
     {
-        static::$connection = $connection;
+        self::$connections[static::class] = $connection;
     }
 
     /**
@@ -101,12 +101,12 @@ class Base
      */
     public static function getConnection(): Connection
     {
-        return static::$connection ?? self::$connection ?? static::$connection = static::getConnectionProvider()->getConnection();
+        return self::$connections[static::class] ?? self::$connections[self::class] ?? self::$connections[static::class] = static::getConnectionProvider()->getConnection();
     }
 
     public static function setConnectionProvider(Provider $connectionProvider): void
     {
-        static::$connectionProvider = $connectionProvider;
+        self::$connectionProviders[static::class] = $connectionProvider;
     }
 
     /**
@@ -114,7 +114,7 @@ class Base
      */
     public static function getConnectionProvider(): Provider
     {
-        return static::$connectionProvider ?? throw new Exception('Connection provider not set up');
+        return self::$connectionProviders[static::class] ?? self::$connectionProviders[self::class] ?? throw new Exception('Connection provider is not set');
     }
 
     public static function getTableName(): string
@@ -133,13 +133,29 @@ class Base
             'boolean' => ' = ' . intval($value),
             'integer' => ' = ' . $value,
             'NULL' => ' IS NULL',
+            'array' => ' IN (' . implode(', ', self::quoteValues($value)) . ')',
             default => ' = ' . self::getConnection()->quote($value)
+        };
+    }
+
+    protected static function quoteValues(array $values): array
+    {
+        return array_map(fn($value) => self::quoteValue($value), $values);
+    }
+
+    protected static function quoteValue(mixed $value): mixed
+    {
+        return match(gettype($value)) {
+            'boolean' => intval($value),
+            'integer' => $value,
+            'NULL' => 'NULL',
+            default => self::getConnection()->quote($value)
         };
     }
 
     protected static function buildQuery(string $criteria = '', string $orderBy = '', int $limit = null, int $offset = null, $select = '*', string $joins = ''): string
     {
-        $table = static::getTableName();
+        $table = self::getQuotedTableName();
         return "SELECT $select FROM $table"
             . self::queryPart('', $joins)
             . self::queryPart('WHERE', $criteria)
@@ -153,9 +169,9 @@ class Base
         return $part ? " $prefix $part" : '';
     }
 
-    private static function getBindVariables(array $values): array
+    private static function getQuotedTableName(): string
     {
-        return array_map(fn($value) => is_bool($value) ? (int) $value : $value, array_values($values));
+        return self::quoteIdentifier(self::getTableName());
     }
 
     public function __construct()
@@ -216,9 +232,11 @@ class Base
 
     public function remove(): void
     {
-        $table = static::getTableName();
-        $query = "DELETE FROM `$table` WHERE id = ?";
-        self::getConnection()->prepare($query)->execute([$this->id]);
+        if ($this->isNew) {
+            return;
+        }
+        $table = self::getQuotedTableName();
+        self::getConnection()->exec("DELETE FROM $table WHERE id = " . self::getConnection()->quote($this->id));
     }
 
     public function __get(string $name)
