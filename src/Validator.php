@@ -11,7 +11,7 @@ use ReflectionProperty;
 
 abstract class Validator
 {
-    protected string $message;
+    protected string|array $message;
     protected ReflectionProperty $property;
 
     #[ArrayShape([Validator::class])]
@@ -37,7 +37,7 @@ abstract class Validator
     public function perform(Base $object): void
     {
         if (!$this->test($object)) {
-            throw new Validation($this->message ?: $this->getDefaultMessage());
+            throw new Validation($this->getMessage() ?: $this->getDefaultMessage());
         }
     }
 
@@ -45,5 +45,13 @@ abstract class Validator
     public function getPropertyName(): string
     {
         return $this->property->getName();
+    }
+
+    protected function getMessage(): string
+    {
+        if (is_callable($this->message)) {
+            return call_user_func($this->message);
+        }
+        return (string) $this->message;
     }
 }

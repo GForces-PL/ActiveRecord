@@ -10,7 +10,7 @@ use JetBrains\PhpStorm\Pure;
 #[\Attribute(\Attribute::TARGET_PROPERTY)]
 class Required extends Validator
 {
-    public function __construct(protected string $message = '')
+    public function __construct(protected string|array $message = '')
     {
     }
 
