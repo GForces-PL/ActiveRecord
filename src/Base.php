@@ -52,11 +52,7 @@ class Base
 
     public static function findFirstByAttributes(array $attributes, string $orderBy = ''): ?static
     {
-        $criteria = implode(' AND ', array_map(
-            fn(string $attribute) => self::condition($attribute, $attributes[$attribute]),
-            array_keys($attributes))
-        );
-        return static::findFirst($criteria, $orderBy);
+        return static::findFirst(self::conditions($attributes), $orderBy);
     }
 
     public static function findAllBySql(string $query): array
@@ -136,6 +132,11 @@ class Base
             'array' => ' IN (' . implode(', ', self::quoteValues($value)) . ')',
             default => ' = ' . self::getConnection()->quote($value)
         };
+    }
+
+    protected static function conditions(array $attributes, string $operator = 'AND'): string
+    {
+        return implode(" $operator ", array_map(fn($attribute, $value) => static::condition($attribute, $value), array_keys($attributes), array_values($attributes)));
     }
 
     protected static function quoteValues(array $values): array
