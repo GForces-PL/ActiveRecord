@@ -146,6 +146,10 @@ describe(Base::class, function () {
             expect($this->connection)->toReceive('exec')->with("INSERT IGNORE INTO `table` (`name`,`age`,`role`) VALUES ('Smith',20,NULL)");
             $this->modelClass::insert(['name' => 'Smith', 'age' => 20, 'role' => null], true);
         });
+        it('it ads ON DUPLICATE KEY UPDATE to INSERT command', function () {
+            expect($this->connection)->toReceive('exec')->with("INSERT INTO `table` (`name`,`age`,`role`) VALUES ('Smith',20,NULL) ON DUPLICATE KEY UPDATE `name` = 'Jones'");
+            $this->modelClass::insert(['name' => 'Smith', 'age' => 20, 'role' => null], onDuplicateKeyUpdate: "`name` = 'Jones'");
+        });
     });
 
     describe('::updateAll()', function () {

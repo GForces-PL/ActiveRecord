@@ -69,12 +69,16 @@ class Base
         return (int) static::getConnection()->query($query)->fetchColumn();
     }
 
-    public static function insert(array $attributes, bool $ignoreDuplicates = false): void
+    public static function insert(array $attributes, bool $ignoreDuplicates = false, string $onDuplicateKeyUpdate = ''): void
     {
         $table = self::getQuotedTableName();
         $columns = implode(',', array_map([static::class, 'quoteIdentifier'], array_keys($attributes)));
         $values = implode(',', self::quoteValues($attributes));
-        static::getConnection()->exec('INSERT ' . ($ignoreDuplicates ? 'IGNORE ' : '') . "INTO $table ($columns) VALUES ($values)");
+        $command = 'INSERT ' . ($ignoreDuplicates ? 'IGNORE ' : '') . "INTO $table ($columns) VALUES ($values)";
+        if ($onDuplicateKeyUpdate) {
+            $command .= " ON DUPLICATE KEY UPDATE $onDuplicateKeyUpdate";
+        }
+        static::getConnection()->exec($command);
     }
 
     public static function updateAll(array $attributes, string $condition = ''): void
