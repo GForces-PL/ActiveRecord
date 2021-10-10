@@ -165,11 +165,11 @@ describe(Base::class, function () {
     });
 
     describe('::setConnection', function () {
-        it('allows to set connections', function() {
+        it('allows to set connections', function () {
             $this->modelClass::setConnection($connection = Double::instance(['class' => Connection::class]));
             expect($this->modelClass::getConnection())->toBe($connection);
         });
-        it('doesn\'t set connection to Base and other classes', function() {
+        it('doesn\'t set connection to Base and other classes', function () {
             $this->modelClass::setConnection(Double::instance(['class' => Connection::class]));
             $otherClass = Double::classname(['extends' => Base::class]);
             expect(fn() => $otherClass::getConnection())->toThrow(new Exception('Connection provider is not set'));
@@ -178,37 +178,45 @@ describe(Base::class, function () {
     });
 
     describe('::getConnection', function () {
-        it('throws exception when connection is not set at all', function() {
+        afterEach(function() {
+            setBaseProperty('connections', []);
+            setBaseProperty('connectionProviders', []);
+        });
+        it('throws exception when connection is not set at all', function () {
             expect(fn() => $this->modelClass::getConnection())->toThrow(new Exception('Connection provider is not set'));
         });
-        it('returns base connection if own is not set', function() {
-            setBaseProperty('connections', [Base::class => $connection = Double::instance(['class' => Connection::class])]);
+        it('returns base connection if own is not set', function () {
+            Base::setConnection($connection = Double::instance(['class' => Connection::class]));
             expect($this->modelClass::getConnection())->toBe($connection);
-            setBaseProperty('connections', []);
         });
-        it('returns own connection even base connection is set', function() {
-            setBaseProperty('connections', [
-                Base::class => $baseConnection = Double::instance(['class' => Connection::class]),
-                $this->modelClass => $ownConnection = Double::instance(['class' => Connection::class]),
-            ]);
+        it('returns own connection even base connection is set', function () {
+            Base::setConnection($baseConnection = Double::instance(['class' => Connection::class]));
+            $this->modelClass::setConnection($ownConnection = Double::instance(['class' => Connection::class]));
             expect($this->modelClass::getConnection())->toBe($ownConnection);
-            setBaseProperty('connections', []);
         });
-        it('it throws exception even it is set for different class', function() {
+        it('it throws exception even it is set for different class', function () {
             $otherClass = Double::classname(['extends' => Base::class]);
             $otherClass::setConnection(Double::instance(['class' => Connection::class]));
             expect(fn() => $this->modelClass::getConnection())->toThrow(new Exception('Connection provider is not set'));
         });
-        it('returns connection from own provider if both own and base connection are not set', function() {
+        it('returns connection from own provider if both own and base connection are not set', function () {
             $provider = Double::instance(['implements' => Connection\Providers\Provider::class]);
             allow($provider)->toReceive('getConnection')->andReturn($connection = Double::instance(['class' => Connection::class]));
             $this->modelClass::setConnectionProvider($provider);
             expect($this->modelClass::getConnection())->toBe($connection);
         });
-        it('returns connection from base provider', function() {
-            setBaseProperty('connectionProviders', [Base::class => $provider = Double::instance(['implements' => Connection\Providers\Provider::class])]);
+        it('returns connection from base provider', function () {
+            Base::setConnectionProvider($provider = Double::instance(['implements' => Connection\Providers\Provider::class]));
             allow($provider)->toReceive('getConnection')->andReturn($connection = Double::instance(['class' => Connection::class]));
             expect($this->modelClass::getConnection())->toBe($connection);
+        });
+        it('returns the same connection for multiple classes if Base connection is set', function () {
+            Base::setConnectionProvider($provider = Double::instance(['implements' => Connection\Providers\Provider::class]));
+            allow($provider)->toReceive('getConnection')->andReturn($connection = Double::instance(['class' => Connection::class]));
+            expect($this->modelClass::getConnection())->toBe($connection);
+            $otherClass = Double::classname(['extends' => Base::class]);
+            allow($provider)->toReceive('getConnection')->andReturn(Double::instance(['class' => Connection::class]));
+            expect($otherClass::getConnection())->toBe($connection);
         });
     });
 
@@ -216,11 +224,31 @@ describe(Base::class, function () {
         it('returns table name based on model class', function () {
             $tests = [
                 'Vehicle' => 'vehicle',
-                'OwnerVehicle' => 'owner_vehicle',
+                'VehicleOwner' => 'vehicle_owner',
             ];
             foreach ($tests as $class => $table) {
                 expect(Double::classname(['class' => $class, 'extends' => Base::class])::getTableName())->toBe($table);
             }
+        });
+        it('returns table name based on model class with namespace', function () {
+            $tests = [
+                'Vehicle\\Model' => 'vehicle_model',
+                'Vehicle\\EngineSize' => 'vehicle_engine_size',
+            ];
+            foreach ($tests as $class => $table) {
+                expect(Double::classname(['class' => $class, 'extends' => Base::class])::getTableName())->toBe($table);
+            }
+        });
+        it('removed models class prefix', function () {
+            Base::$modelsNamespacePrefix = 'Models\\';
+            $tests = [
+                'Models\\Vehicle\\Model' => 'vehicle_model',
+                'Models\\Vehicle\\EngineSize' => 'vehicle_engine_size',
+            ];
+            foreach ($tests as $class => $table) {
+                expect(Double::classname(['class' => $class, 'extends' => Base::class])::getTableName())->toBe($table);
+            }
+            Base::$modelsNamespacePrefix = '';
         });
     });
 

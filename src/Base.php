@@ -11,6 +11,10 @@ use PDO;
 class Base
 {
     /**
+     * defines namespace prefix which is not included in table name
+     */
+    public static string $modelsNamespacePrefix = '';
+    /**
      * Set true if you need access to original values. It also optimises UPDATE queries with only changed values.
      */
     protected static bool $keepAttributeChanges = false;
@@ -101,7 +105,14 @@ class Base
      */
     public static function getConnection(): Connection
     {
-        return self::$connections[static::class] ?? self::$connections[self::class] ?? self::$connections[static::class] = static::getConnectionProvider()->getConnection();
+        try {
+            return self::$connections[static::class] ??= static::getConnectionProvider()->getConnection();
+        } catch (Exception $e) {
+            if (static::class === self::class) {
+                throw $e;
+            }
+            return Base::getConnection();
+        }
     }
 
     public static function setConnectionProvider(Provider $connectionProvider): void
@@ -114,12 +125,16 @@ class Base
      */
     public static function getConnectionProvider(): Provider
     {
-        return self::$connectionProviders[static::class] ?? self::$connectionProviders[self::class] ?? throw new Exception('Connection provider is not set');
+        return self::$connectionProviders[static::class] ?? throw new Exception('Connection provider is not set');
     }
 
     public static function getTableName(): string
     {
-        return strtolower(preg_replace('/(.)([A-Z])/', "$1_$2", static::class));
+        $class = static::class;
+        if (str_starts_with($class, self::$modelsNamespacePrefix)) {
+            $class = substr($class, strlen(self::$modelsNamespacePrefix));
+        }
+        return strtolower(preg_replace('/(.)([A-Z])/', "$1_$2", str_replace('\\', '', $class)));
     }
 
     protected static function quoteIdentifier($identifier): string
