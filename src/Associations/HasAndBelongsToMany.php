@@ -9,7 +9,7 @@ use Gforces\ActiveRecord\Base;
 #[\Attribute(\Attribute::TARGET_PROPERTY)]
 class HasAndBelongsToMany extends Association
 {
-    public function __construct(private string $relatedClass = '', private string $intermediateTable = '', private string $objectForeignKey = '', private string $relatedForeignKey = '')
+    public function __construct(private string $relatedClass = '', private array|string $intermediateTable = '', private string $objectForeignKey = '', private string $relatedForeignKey = '')
     {
     }
 
@@ -24,7 +24,7 @@ class HasAndBelongsToMany extends Association
         }
         $objectTable = $object::class::getTableName();
         $relatedTable = $relatedClass::getTableName();
-        $intermediateTable = $this->intermediateTable ?: $this->getIntermediateTableName($objectTable, $relatedTable);
+        $intermediateTable = $this->getIntermediateTableName($object, $objectTable, $relatedTable);
         $objectForeignKey = $this->objectForeignKey ?: $objectTable . '_id';
         $relatedForeignKey = $this->relatedForeignKey ?: $relatedTable . '_id';
 
@@ -47,7 +47,7 @@ class HasAndBelongsToMany extends Association
         }
         $objectTable = $object::class::getTableName();
         $relatedTable = $relatedClass::getTableName();
-        $intermediateTable = $this->intermediateTable ?: $this->getIntermediateTableName($objectTable, $relatedTable);
+        $intermediateTable = $this->getIntermediateTableName($object, $objectTable, $relatedTable);
         $objectForeignKey = $this->objectForeignKey ?: $objectTable . '_id';
         $relatedForeignKey = $this->relatedForeignKey ?: $relatedTable . '_id';
         $objectId = $object->id;
@@ -72,5 +72,16 @@ class HasAndBelongsToMany extends Association
         if ($removeValues) {
             $connection->exec("DELETE FROM $intermediateTable WHERE $objectForeignKey = $objectId AND $relatedForeignKey IN ($removeValues)");
         }
+    }
+
+    private function getIntermediateTableName(Base $object, string $objectTable, string $relatedTable): string
+    {
+        if (empty($this->intermediateTable)) {
+            return strcmp($objectTable, $relatedTable) < 0 ? $objectTable . '_' . $relatedTable : $relatedTable . '_' . $objectTable;
+        }
+        if (is_callable($this->intermediateTable)) {
+            return call_user_func($this->intermediateTable, $object);
+        }
+        return $this->intermediateTable;
     }
 }

@@ -61,10 +61,4 @@ abstract class Association
         $attribute = $property->getAttributes(ArrayShape::class)[0] ?? null;
         return $attribute ? $attribute->getArguments()[0][0] : '';
     }
-
-    #[Pure]
-    protected function getIntermediateTableName($table1, $table2): string
-    {
-        return strcmp($table1, $table2) < 0 ? $table1 . '_' . $table2 : $table2 . '_' . $table1;
-    }
 }
