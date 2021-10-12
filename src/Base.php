@@ -95,6 +95,12 @@ class Base
         static::getConnection()->exec("UPDATE $table SET $values" . self::queryPart('WHERE', $condition));
     }
 
+    public static function deleteAll(string $condition = ''): void
+    {
+        $table = self::getQuotedTableName();
+        static::getConnection()->exec("DELETE FROM $table" . self::queryPart('WHERE', $condition));
+    }
+
     public static function setConnection(Connection $connection): void
     {
         self::$connections[static::class] = $connection;
