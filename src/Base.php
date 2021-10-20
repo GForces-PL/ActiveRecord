@@ -7,6 +7,7 @@ use Gforces\ActiveRecord\Connection\Providers\Provider;
 use Gforces\ActiveRecord\Exception\Validation;
 use JetBrains\PhpStorm\ArrayShape;
 use PDO;
+use ReflectionException;
 
 class Base
 {
@@ -322,7 +323,7 @@ class Base
     {
         try {
             return $this->$name = Association::get(static::class, $name)->load($this);
-        } catch (\ReflectionException $e) {
+        } catch (ReflectionException $e) {
             $class = static::class;
             $file = $e->getTrace()[2]['file'];
             $line = $e->getTrace()[2]['line'];
@@ -348,10 +349,17 @@ class Base
 
     protected function isAttributeChanged($attribute): bool
     {
-        if (!array_key_exists($attribute, $this->originalValues)) {
-            throw new Exception('Invalid attribute or changes are not stored for this object');
+        if (!static::$keepAttributeChanges) {
+            throw new Exception('Changes are not stored for this object');
         }
-        return $this->originalValues[$attribute] !== $this->$attribute;
+        if (array_key_exists($attribute, $this->originalValues)) {
+            return $this->originalValues[$attribute] !== $this->$attribute;
+        }
+        try {
+            return Column::isPropertyInitialized($this, $attribute);
+        } catch (ReflectionException $e) {
+            throw new Exception('Could nor check changes for invalid attribute', previous: $e);
+        }
     }
 
     /**
