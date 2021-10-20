@@ -31,6 +31,9 @@ class Base
 
     private array $originalValues = [];
 
+    /**
+     * @throws Exception
+     */
     public static function find(int $id): static
     {
         // TODO: custom PK
@@ -38,27 +41,42 @@ class Base
             ?: throw new Exception('object with id ' . $id . ' of type ' . static::class . ' not found');
     }
 
+    /**
+     * @throws Exception
+     */
     #[ArrayShape([Base::class])]
     public static function findAll(string $criteria = '', string $orderBy = 'id ASC', int $limit = null, int $offset = null, string $select = '*'): array
     {
         return static::findAllBySql(static::buildQuery($criteria, $orderBy, $limit, $offset, $select));
     }
 
+    /**
+     * @throws Exception
+     */
     public static function findFirst(string $criteria = '', string $orderBy = ''): ?static
     {
         return static::findAllBySql(static::buildQuery($criteria, $orderBy, 1))[0] ?? null;
     }
 
+    /**
+     * @throws Exception
+     */
     public static function findFirstByAttribute(string $attribute, mixed $value, string $orderBy = ''): ?static
     {
         return static::findFirst(self::condition($attribute, $value), $orderBy);
     }
 
+    /**
+     * @throws Exception
+     */
     public static function findFirstByAttributes(array $attributes, string $orderBy = ''): ?static
     {
         return static::findFirst(self::conditions($attributes), $orderBy);
     }
 
+    /**
+     * @throws Exception
+     */
     public static function findAllBySql(string $query): array
     {
         self::$createNewObject = false;
@@ -67,12 +85,18 @@ class Base
         return $objects;
     }
 
+    /**
+     * @throws Exception
+     */
     public static function count(string $criteria = ''): int
     {
         $query = static::buildQuery($criteria, select: 'COUNT(*)');
         return (int) static::getConnection()->query($query)->fetchColumn();
     }
 
+    /**
+     * @throws Exception
+     */
     public static function insert(array $attributes, bool $ignoreDuplicates = false, string $onDuplicateKeyUpdate = ''): void
     {
         $table = self::getQuotedTableName();
@@ -85,6 +109,9 @@ class Base
         static::getConnection()->exec($command);
     }
 
+    /**
+     * @throws Exception
+     */
     public static function updateAll(array $attributes, string $condition = ''): void
     {
         if (empty($attributes)) {
@@ -95,6 +122,9 @@ class Base
         static::getConnection()->exec("UPDATE $table SET $values" . self::queryPart('WHERE', $condition));
     }
 
+    /**
+     * @throws Exception
+     */
     public static function deleteAll(string $condition = ''): void
     {
         $table = self::getQuotedTableName();
@@ -143,11 +173,17 @@ class Base
         return strtolower(preg_replace('/(.)([A-Z])/', "$1_$2", str_replace('\\', '', $class)));
     }
 
+    /**
+     * @throws Exception
+     */
     protected static function quoteIdentifier($identifier): string
     {
         return static::getConnection()->quoteIdentifier($identifier);
     }
 
+    /**
+     * @throws Exception
+     */
     protected static function condition(string $attribute, mixed $value): string
     {
         return self::quoteIdentifier($attribute) . match(gettype($value)) {
@@ -159,16 +195,25 @@ class Base
         };
     }
 
+    /**
+     * @throws Exception
+     */
     protected static function conditions(array $attributes, string $operator = 'AND'): string
     {
         return implode(" $operator ", array_map(fn($attribute, $value) => static::condition($attribute, $value), array_keys($attributes), array_values($attributes)));
     }
 
+    /**
+     * @throws Exception
+     */
     protected static function quoteValues(array $values): array
     {
         return array_map(fn($value) => self::quoteValue($value), $values);
     }
 
+    /**
+     * @throws Exception
+     */
     protected static function quoteValue(mixed $value): mixed
     {
         return match(gettype($value)) {
@@ -195,6 +240,9 @@ class Base
         return $part ? " $prefix $part" : '';
     }
 
+    /**
+     * @throws Exception
+     */
     private static function getQuotedTableName(): string
     {
         return self::quoteIdentifier(self::getTableName());
@@ -256,15 +304,20 @@ class Base
         }
     }
 
+    /**
+     * @throws Exception
+     */
     public function remove(): void
     {
         if ($this->isNew) {
             return;
         }
-        $table = self::getQuotedTableName();
-        self::getConnection()->exec("DELETE FROM $table WHERE id = " . self::getConnection()->quote($this->id));
+        self::deleteAll(self::condition('id', $this->id));
     }
 
+    /**
+     * @throws Exception
+     */
     public function __get(string $name)
     {
         try {
@@ -301,6 +354,9 @@ class Base
         return $this->originalValues[$attribute] !== $this->$attribute;
     }
 
+    /**
+     * @throws Exception
+     */
     private function update(array $attributes): void
     {
         if ($this->isNew) {

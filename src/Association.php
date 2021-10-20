@@ -43,6 +43,9 @@ abstract class Association
         return self::getAssociationFromProperty(new ReflectionProperty($class, $property));
     }
 
+    /**
+     * @throws Exception
+     */
     private static function getAssociationFromProperty(ReflectionProperty $propertyReflection): Association
     {
         foreach ($propertyReflection->getAttributes() as $attribute) {
