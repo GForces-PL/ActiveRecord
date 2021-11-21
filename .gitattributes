@@ -1,2 +1,4 @@
 /.* export-ignore
+/README.md export-ignore
 /tests export-ignore
+/kahlan-config.php export-ignore

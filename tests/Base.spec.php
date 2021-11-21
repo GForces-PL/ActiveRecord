@@ -2,6 +2,7 @@
 
 use Gforces\ActiveRecord\Base;
 use Gforces\ActiveRecord\Connection;
+use Gforces\ActiveRecord\DbExpression;
 use Gforces\ActiveRecord\Exception;
 use Kahlan\Plugin\Double;
 
@@ -150,6 +151,10 @@ describe(Base::class, function () {
             expect($this->connection)->toReceive('exec')->with("INSERT INTO `table` (`name`,`age`,`role`) VALUES ('Smith',20,NULL) ON DUPLICATE KEY UPDATE `name` = 'Jones'");
             $this->modelClass::insert(['name' => 'Smith', 'age' => 20, 'role' => null], onDuplicateKeyUpdate: "`name` = 'Jones'");
         });
+        it('allows to use DbExpression in attributes', function () {
+            expect($this->connection)->toReceive('exec')->with("INSERT INTO `table` (`updated_at`) VALUES (NOW())");
+            $this->modelClass::insert(['updated_at' => DbExpression::now()]);
+        });
     });
 
     describe('::updateAll()', function () {
@@ -161,6 +166,14 @@ describe(Base::class, function () {
         it('it execute UPDATE command without condition', function () {
             expect($this->connection)->toReceive('exec')->with("UPDATE `table` SET `name` = 'Smith', `age` = 20, `role` = NULL");
             $this->modelClass::updateAll(['name' => 'Smith', 'age' => 20, 'role' => null]);
+        });
+        it('allows to use DbExpression in attributes', function () {
+            expect($this->connection)->toReceive('exec')->with("UPDATE `table` SET `updated_at` = NOW()");
+            $this->modelClass::updateAll(['updated_at' => DbExpression::now()]);
+        });
+        it('allows to set criteria', function () {
+            expect($this->connection)->toReceive('exec')->with("UPDATE `table` SET `attribute` = 'value' WHERE criteria");
+            $this->modelClass::updateAll(['attribute' => 'value'], 'criteria');
         });
     });
 
@@ -264,6 +277,7 @@ describe(Base::class, function () {
                 "`role` IS NULL" => ['role', null],
                 "`new` = 1" => ['new', true],
                 "`name` IN ('Smith', 'Jones', 'Williams')" => ['name', ['Smith', 'Jones', 'Williams']],
+                "`updated_at` = NOW()" => ['updated_at', DbExpression::now()],
             ];
             foreach ($tests as $result => $params) {
                 expect($method->invoke(null, ...$params))->toBe($result);

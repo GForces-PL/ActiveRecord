@@ -64,7 +64,7 @@ class Base
      */
     public static function findFirstByAttribute(string $attribute, mixed $value, string $orderBy = ''): ?static
     {
-        return static::findFirst(self::condition($attribute, $value), $orderBy);
+        return static::findFirst(static::condition($attribute, $value), $orderBy);
     }
 
     /**
@@ -72,7 +72,7 @@ class Base
      */
     public static function findFirstByAttributes(array $attributes, string $orderBy = ''): ?static
     {
-        return static::findFirst(self::conditions($attributes), $orderBy);
+        return static::findFirst(static::conditions($attributes), $orderBy);
     }
 
     /**
@@ -100,9 +100,9 @@ class Base
      */
     public static function insert(array $attributes, bool $ignoreDuplicates = false, string $onDuplicateKeyUpdate = ''): void
     {
-        $table = self::getQuotedTableName();
+        $table = static::getQuotedTableName();
         $columns = implode(',', array_map([static::class, 'quoteIdentifier'], array_keys($attributes)));
-        $values = implode(',', self::quoteValues($attributes));
+        $values = implode(',', static::quoteValues($attributes));
         $command = 'INSERT ' . ($ignoreDuplicates ? 'IGNORE ' : '') . "INTO $table ($columns) VALUES ($values)";
         if ($onDuplicateKeyUpdate) {
             $command .= " ON DUPLICATE KEY UPDATE $onDuplicateKeyUpdate";
@@ -118,8 +118,11 @@ class Base
         if (empty($attributes)) {
             return;
         }
-        $table = self::getQuotedTableName();
-        $values = implode(', ', array_map(fn($attribute, $value) => static::quoteIdentifier($attribute) . ' = ' . self::quoteValue($value), array_keys($attributes), array_values($attributes)));
+        $table = static::getQuotedTableName();
+        $values = implode(', ', array_map(
+            fn($attribute, $value) => static::quoteIdentifier($attribute) . ' = ' . static::quoteValue($value),
+            array_keys($attributes), array_values($attributes))
+        );
         static::getConnection()->exec("UPDATE $table SET $values" . self::queryPart('WHERE', $condition));
     }
 
@@ -128,7 +131,7 @@ class Base
      */
     public static function deleteAll(string $condition = ''): void
     {
-        $table = self::getQuotedTableName();
+        $table = static::getQuotedTableName();
         static::getConnection()->exec("DELETE FROM $table" . self::queryPart('WHERE', $condition));
     }
 
@@ -187,12 +190,10 @@ class Base
      */
     protected static function condition(string $attribute, mixed $value): string
     {
-        return self::quoteIdentifier($attribute) . match(gettype($value)) {
-            'boolean' => ' = ' . intval($value),
-            'integer' => ' = ' . $value,
+        return static::quoteIdentifier($attribute) . match (gettype($value)) {
             'NULL' => ' IS NULL',
-            'array' => ' IN (' . implode(', ', self::quoteValues($value)) . ')',
-            default => ' = ' . self::getConnection()->quote($value)
+            'array' => ' IN (' . implode(', ', static::quoteValues($value)) . ')',
+            default => ' = ' . static::quoteValue($value),
         };
     }
 
@@ -201,7 +202,11 @@ class Base
      */
     protected static function conditions(array $attributes, string $operator = 'AND'): string
     {
-        return implode(" $operator ", array_map(fn($attribute, $value) => static::condition($attribute, $value), array_keys($attributes), array_values($attributes)));
+        return implode(" $operator ",
+            array_map(fn($attribute, $value) => static::condition($attribute, $value), array_keys($attributes),
+                array_values($attributes)
+            )
+        );
     }
 
     /**
@@ -209,7 +214,7 @@ class Base
      */
     protected static function quoteValues(array $values): array
     {
-        return array_map(fn($value) => self::quoteValue($value), $values);
+        return array_map(fn($value) => static::quoteValue($value), $values);
     }
 
     /**
@@ -217,17 +222,22 @@ class Base
      */
     protected static function quoteValue(mixed $value): mixed
     {
-        return match(gettype($value)) {
+        return match (gettype($value)) {
+            'string' => static::getConnection()->quote($value),
             'boolean' => intval($value),
             'integer' => $value,
             'NULL' => 'NULL',
-            default => self::getConnection()->quote($value)
+            'object' => match (get_class($value)) {
+                DbExpression::class => $value,
+                default => throw new Exception('Invalid value type1'),
+            },
+            default => throw new Exception('Invalid value type'),
         };
     }
 
     protected static function buildQuery(string $criteria = '', string $orderBy = '', int $limit = null, int $offset = null, $select = '*', string $joins = ''): string
     {
-        $table = self::getQuotedTableName();
+        $table = static::getQuotedTableName();
         return "SELECT $select FROM $table"
             . self::queryPart('', $joins)
             . self::queryPart('WHERE', $criteria)
@@ -246,7 +256,7 @@ class Base
      */
     private static function getQuotedTableName(): string
     {
-        return self::quoteIdentifier(self::getTableName());
+        return static::quoteIdentifier(static::getTableName());
     }
 
     public function __construct()
@@ -292,7 +302,7 @@ class Base
         $values = $this->getAttributes();
         if ($this->isNew) {
             static::insert($values);
-            $this->id = (int) self::getConnection()->lastInsertId();
+            $this->id = (int) static::getConnection()->lastInsertId();
             $this->isNew = false;
         } else {
             $this->update(array_diff_assoc($values, $this->originalValues));
@@ -313,7 +323,7 @@ class Base
         if ($this->isNew) {
             return;
         }
-        self::deleteAll(self::condition('id', $this->id));
+        static::deleteAll(static::condition('id', $this->id));
     }
 
     /**
