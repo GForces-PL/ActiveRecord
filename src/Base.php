@@ -226,6 +226,7 @@ class Base
             'string' => static::getConnection()->quote($value),
             'boolean' => intval($value),
             'integer' => $value,
+            'double' => $value,
             'NULL' => 'NULL',
             'object' => match (get_class($value)) {
                 DbExpression::class => $value,
