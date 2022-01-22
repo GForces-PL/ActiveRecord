@@ -31,13 +31,13 @@ class Connection extends PDO
         return $this->driver->getIdentifierQuotingCharacter() . $identifier . $this->driver->getIdentifierQuotingCharacter();
     }
 
-    public function query($statement, $mode = null, ...$fetch_mode_args): bool|\PDOStatement
+    public function query(string $query, ?int $fetchMode = null, mixed ...$fetchModeArgs): \PDOStatement|false
     {
-        Logger::logQuery($statement);
-        return parent::query($statement, $mode, $fetch_mode_args);
+        Logger::logQuery($query);
+        return parent::query($query, $fetchMode, ...$fetchModeArgs);
     }
 
-    public function exec($statement): bool|int
+    public function exec($statement): int|false
     {
         Logger::logQuery($statement);
         return parent::exec($statement);
