@@ -46,7 +46,7 @@ class Base
      * @throws Exception
      */
     #[ArrayShape([Base::class])]
-    public static function findAll(string $criteria = '', string $orderBy = 'id ASC', int $limit = null, int $offset = null, string $select = '*'): array
+    public static function findAll(string | array $criteria = '', string $orderBy = 'id ASC', int $limit = null, int $offset = null, string $select = '*'): array
     {
         return static::findAllBySql(static::buildQuery($criteria, $orderBy, $limit, $offset, $select));
     }
@@ -54,7 +54,7 @@ class Base
     /**
      * @throws Exception
      */
-    public static function findFirst(string $criteria = '', string $orderBy = ''): ?static
+    public static function findFirst(string | array $criteria = '', string $orderBy = ''): ?static
     {
         return static::findAllBySql(static::buildQuery($criteria, $orderBy, 1))[0] ?? null;
     }
@@ -89,7 +89,7 @@ class Base
     /**
      * @throws Exception
      */
-    public static function count(string $criteria = ''): int
+    public static function count(string | array $criteria = ''): int
     {
         $query = static::buildQuery($criteria, select: 'COUNT(*)');
         return (int) static::getConnection()->query($query)->fetchColumn();
@@ -203,9 +203,7 @@ class Base
     protected static function conditions(array $attributes, string $operator = 'AND'): string
     {
         return implode(" $operator ",
-            array_map(fn($attribute, $value) => static::condition($attribute, $value), array_keys($attributes),
-                array_values($attributes)
-            )
+            array_map(fn($attribute, $value) => static::condition($attribute, $value), array_keys($attributes), array_values($attributes))
         );
     }
 
@@ -236,12 +234,15 @@ class Base
         };
     }
 
-    protected static function buildQuery(string $criteria = '', string $orderBy = '', int $limit = null, int $offset = null, $select = '*', string $joins = ''): string
+    /**
+     * @throws Exception
+     */
+    protected static function buildQuery(string | array $criteria = '', string $orderBy = '', int $limit = null, int $offset = null, $select = '*', string $joins = ''): string
     {
         $table = static::getQuotedTableName();
         return "SELECT $select FROM $table"
             . self::queryPart('', $joins)
-            . self::queryPart('WHERE', $criteria)
+            . self::queryPart('WHERE', is_array($criteria) ? static::conditions($criteria) : $criteria)
             . self::queryPart('ORDER BY', $orderBy)
             . self::queryPart('LIMIT', (string) $limit)
             . self::queryPart('OFFSET', (string) $offset);

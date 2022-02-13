@@ -86,6 +86,11 @@ describe(Base::class, function () {
             expect($this->connection)->toReceive('query')->with("SELECT * FROM `table` WHERE criteria ORDER BY custom_order LIMIT 1");
             $this->modelClass::findFirst('criteria', 'custom_order');
         });
+        it('generates valid query with array criteria', function () {
+            allow($this->statement)->toReceive('fetchAll')->andReturn([$this->model]);
+            expect($this->connection)->toReceive('query')->with("SELECT * FROM `table` WHERE `col1` = `val1` AND `col2` = `val2` LIMIT 1");
+            $this->modelClass::findFirst(['col1' => 'val1', 'col2' => 'val2']);
+        });
     });
 
     describe('::findFirstByAttribute()', function () {
