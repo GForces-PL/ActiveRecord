@@ -6,6 +6,7 @@ namespace Gforces\ActiveRecord;
 use Gforces\ActiveRecord\Connection\Providers\Provider;
 use Gforces\ActiveRecord\Exception\Validation;
 use JetBrains\PhpStorm\ArrayShape;
+use JetBrains\PhpStorm\Deprecated;
 use PDO;
 use ReflectionException;
 
@@ -70,6 +71,7 @@ class Base
     /**
      * @throws Exception
      */
+    #[Deprecated(replacement: '%class%::findFirst(%parametersList%)')]
     public static function findFirstByAttributes(array $attributes, string $orderBy = ''): ?static
     {
         return static::findFirst(static::conditions($attributes), $orderBy);
