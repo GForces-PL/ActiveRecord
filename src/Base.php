@@ -113,7 +113,7 @@ class Base
     /**
      * @throws Exception
      */
-    public static function updateAll(array $attributes, string $condition = ''): void
+    public static function updateAll(array $attributes, array | string $condition = ''): void
     {
         if (empty($attributes)) {
             return;
@@ -123,16 +123,16 @@ class Base
             fn($attribute, $value) => static::quoteIdentifier($attribute) . ' = ' . static::quoteValue($value),
             array_keys($attributes), array_values($attributes))
         );
-        static::getConnection()->exec("UPDATE $table SET $values" . self::queryPart('WHERE', $condition));
+        static::getConnection()->exec("UPDATE $table SET $values" . self::queryWherePart($condition));
     }
 
     /**
      * @throws Exception
      */
-    public static function deleteAll(string $condition = ''): void
+    public static function deleteAll(array | string $condition = ''): void
     {
         $table = static::getQuotedTableName();
-        static::getConnection()->exec("DELETE FROM $table" . self::queryPart('WHERE', $condition));
+        static::getConnection()->exec("DELETE FROM $table" . self::queryWherePart($condition));
     }
 
     public static function setConnection(Connection $connection): void
@@ -242,7 +242,7 @@ class Base
         $table = static::getQuotedTableName();
         return "SELECT $select FROM $table"
             . self::queryPart('', $joins)
-            . self::queryPart('WHERE', is_array($criteria) ? static::conditions($criteria) : $criteria)
+            . self::queryWherePart($criteria)
             . self::queryPart('ORDER BY', $orderBy)
             . self::queryPart('LIMIT', (string) $limit)
             . self::queryPart('OFFSET', (string) $offset);
@@ -251,6 +251,11 @@ class Base
     private static function queryPart(string $prefix, string $part): string
     {
         return $part ? " $prefix $part" : '';
+    }
+
+    private static function queryWherePart(string | array $criteria): string
+    {
+        return self::queryPart('WHERE', is_array($criteria) ? static::conditions($criteria) : $criteria);
     }
 
     /**
@@ -275,8 +280,7 @@ class Base
 
     public function isValid(): bool
     {
-        $this->validate();
-        return count($this->errors) == 0;
+        return count($this->getErrors(true)) == 0;
     }
 
     public function getErrors($validate = false): array
