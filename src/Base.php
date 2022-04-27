@@ -45,6 +45,7 @@ class Base
 
     /**
      * @throws Exception
+     * @return static[]
      */
     #[ArrayShape([Base::class])]
     public static function findAll(string | array $criteria = '', string $orderBy = 'id ASC', int $limit = null, int $offset = null, string $select = '*'): array
@@ -79,6 +80,7 @@ class Base
 
     /**
      * @throws Exception
+     * @return static[]
      */
     public static function findAllBySql(string $query): array
     {
