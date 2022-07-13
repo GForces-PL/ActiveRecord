@@ -311,7 +311,7 @@ class Base
         }
         $values = $this->getAttributes();
         if ($this->isNew) {
-            static::insert($values);
+            static::insert(array_diff_assoc($values, $this->originalValues));
             $this->id = (int) static::getConnection()->lastInsertId();
             $this->isNew = false;
         } else {
