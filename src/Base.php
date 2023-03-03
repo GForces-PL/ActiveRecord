@@ -232,9 +232,9 @@ class Base
             'NULL' => 'NULL',
             'object' => match (get_class($value)) {
                 DbExpression::class => $value,
-                default => throw new Exception('Invalid value type1'),
+                default => throw new Exception('Invalid value type: ' . get_class($value)),
             },
-            default => throw new Exception('Invalid value type'),
+            default => throw new Exception('Invalid value type: ' . gettype($value)),
         };
     }
 
@@ -244,6 +244,9 @@ class Base
     protected static function buildQuery(string | array $criteria = '', string $orderBy = '', int $limit = null, int $offset = null, $select = '*', string $joins = ''): string
     {
         $table = static::getQuotedTableName();
+        if ($select === '*' && $joins) {
+            $select = "$table.*";
+        }
         return "SELECT $select FROM $table"
             . self::queryPart('', $joins)
             . self::queryWherePart($criteria)
