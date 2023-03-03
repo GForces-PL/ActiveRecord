@@ -8,7 +8,7 @@
     {
       "name": "Michał Felski",
       "email": "michal.felski@gforces.pl",
-      "role": "Developer"
+      "role": "Maintener"
     }
   ],
   "autoload": {
@@ -21,6 +21,6 @@
     "ext-pdo": "*"
   },
   "require-dev": {
-    "kahlan/kahlan": "^5.1.3"
+    "kahlan/kahlan": "^5.2.2"
   }
 }

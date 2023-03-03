@@ -88,7 +88,7 @@ describe(Base::class, function () {
         });
         it('generates valid query with array criteria', function () {
             allow($this->statement)->toReceive('fetchAll')->andReturn([$this->model]);
-            expect($this->connection)->toReceive('query')->with("SELECT * FROM `table` WHERE `col1` = `val1` AND `col2` = `val2` LIMIT 1");
+            expect($this->connection)->toReceive('query')->with("SELECT * FROM `table` WHERE `col1` = 'val1' AND `col2` = 'val2' LIMIT 1");
             $this->modelClass::findFirst(['col1' => 'val1', 'col2' => 'val2']);
         });
     });
