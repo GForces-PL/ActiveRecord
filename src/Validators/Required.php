@@ -3,11 +3,12 @@
 
 namespace Gforces\ActiveRecord\Validators;
 
+use Attribute;
 use Gforces\ActiveRecord\Base;
 use Gforces\ActiveRecord\Validator;
 use JetBrains\PhpStorm\Pure;
 
-#[\Attribute(\Attribute::TARGET_PROPERTY)]
+#[Attribute(Attribute::TARGET_PROPERTY)]
 class Required extends Validator
 {
     public function __construct(protected string|array $message = '')

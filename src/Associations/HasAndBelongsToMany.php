@@ -3,10 +3,12 @@
 
 namespace Gforces\ActiveRecord\Associations;
 
+use Attribute;
 use Gforces\ActiveRecord\Association;
 use Gforces\ActiveRecord\Base;
+use PDO;
 
-#[\Attribute(\Attribute::TARGET_PROPERTY)]
+#[Attribute(Attribute::TARGET_PROPERTY)]
 class HasAndBelongsToMany extends Association
 {
     public function __construct(private string $relatedClass = '', private array|string $intermediateTable = '', private string $objectForeignKey = '', private string $relatedForeignKey = '')
@@ -52,7 +54,7 @@ class HasAndBelongsToMany extends Association
         $relatedForeignKey = $this->relatedForeignKey ?: $relatedTable . '_id';
         $objectId = $object->id;
 
-        $existingIds = $connection->query("SELECT `$relatedForeignKey` FROM `$intermediateTable` WHERE `$objectForeignKey` = $objectId")->fetchAll(\PDO::FETCH_COLUMN);
+        $existingIds = $connection->query("SELECT `$relatedForeignKey` FROM `$intermediateTable` WHERE `$objectForeignKey` = $objectId")->fetchAll(PDO::FETCH_COLUMN);
         $newIds = [];
         foreach ($this->property->getValue($object) as $relatedObject) {
             if (!$relatedObject instanceof Base) {

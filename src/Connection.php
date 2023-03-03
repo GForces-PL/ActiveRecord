@@ -7,6 +7,7 @@ use Gforces\ActiveRecord\Connection\Drivers\Pgsql;
 use Gforces\ActiveRecord\Connection\Logger;
 use Gforces\ActiveRecord\Connection\Statement;
 use PDO;
+use PDOStatement;
 
 class Connection extends PDO
 {
@@ -31,7 +32,7 @@ class Connection extends PDO
         return $this->driver->getIdentifierQuotingCharacter() . $identifier . $this->driver->getIdentifierQuotingCharacter();
     }
 
-    public function query(string $query, ?int $fetchMode = null, mixed ...$fetchModeArgs): \PDOStatement|false
+    public function query(string $query, ?int $fetchMode = null, mixed ...$fetchModeArgs): PDOStatement|false
     {
         Logger::logQuery($query);
         return parent::query($query, $fetchMode, ...$fetchModeArgs);

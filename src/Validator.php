@@ -7,6 +7,7 @@ namespace Gforces\ActiveRecord;
 use Gforces\ActiveRecord\Exception\Validation;
 use JetBrains\PhpStorm\ArrayShape;
 use JetBrains\PhpStorm\Pure;
+use ReflectionClass;
 use ReflectionProperty;
 
 abstract class Validator
@@ -18,7 +19,7 @@ abstract class Validator
     public static function getAll(string $class): array
     {
         $validators = [];
-        $classReflection = new \ReflectionClass($class);
+        $classReflection = new ReflectionClass($class);
         foreach ($classReflection->getProperties() as $propertyReflection) {
             foreach ($propertyReflection->getAttributes() as $attribute) {
                 if (is_subclass_of($attribute->getName(), static::class)) {

@@ -3,10 +3,11 @@
 
 namespace Gforces\ActiveRecord\Associations;
 
+use Attribute;
 use Gforces\ActiveRecord\Association;
 use Gforces\ActiveRecord\Base;
 
-#[\Attribute(\Attribute::TARGET_PROPERTY)]
+#[Attribute(Attribute::TARGET_PROPERTY)]
 class HasMany extends Association
 {
     public function __construct(private string $relatedClass = '', private string $foreignKey = '', private string $orderBy = 'id')

@@ -6,6 +6,8 @@ namespace Gforces\ActiveRecord;
 
 use JetBrains\PhpStorm\ArrayShape;
 use JetBrains\PhpStorm\Pure;
+use ReflectionClass;
+use ReflectionException;
 use ReflectionProperty;
 
 abstract class Association
@@ -18,13 +20,13 @@ abstract class Association
     /**
      * @param string $class
      * @return Association[]
-     * @throws \ReflectionException
+     * @throws ReflectionException
      */
     #[ArrayShape([Association::class])]
     public static function getAll(string $class): array
     {
         $associations = [];
-        $classReflection = new \ReflectionClass($class);
+        $classReflection = new ReflectionClass($class);
         foreach ($classReflection->getProperties() as $propertyReflection) {
             try {
                 $associations[] = self::getAssociationFromProperty($propertyReflection);
@@ -35,7 +37,7 @@ abstract class Association
     }
 
     /**
-     * @throws \ReflectionException
+     * @throws ReflectionException
      * @throws Exception
      */
     public static function get(string $class, string $property): Association

@@ -3,11 +3,12 @@
 
 namespace Gforces\ActiveRecord\Associations;
 
+use Attribute;
 use Gforces\ActiveRecord\Association;
 use Gforces\ActiveRecord\Base;
 use ReflectionProperty;
 
-#[\Attribute(\Attribute::TARGET_PROPERTY)]
+#[Attribute(Attribute::TARGET_PROPERTY)]
 class BelongsTo extends Association
 {
     public function __construct(private string $foreignKey = '')
