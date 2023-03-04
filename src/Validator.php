@@ -3,13 +3,11 @@
 
 namespace Gforces\ActiveRecord;
 
-
 use JetBrains\PhpStorm\Pure;
-use ReflectionProperty;
 
 abstract class Validator extends PropertyAttribute
 {
-    protected string|array $message;
+    protected string|\Callable $message;
 
     abstract protected function test(Base $object): bool;
     abstract protected function getDefaultMessage(): string;
