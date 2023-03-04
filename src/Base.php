@@ -332,7 +332,7 @@ class Base
         $values = $this->getAttributes();
         if ($this->isNew) {
             static::insert(array_diff_assoc($values, $this->originalValues));
-            $this->id = (int) static::getConnection()->lastInsertId();
+            Column::getAutoIncrementProperty(static::class)?->setValue($this, (int) static::getConnection()->lastInsertId());
             $this->isNew = false;
         } else {
             $this->update(array_diff_assoc($values, $this->originalValues));
