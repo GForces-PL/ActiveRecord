@@ -1,16 +1,18 @@
 <?php
 
+use Gforces\ActiveRecord\ActiveRecordException;
 use Gforces\ActiveRecord\Base;
 use Gforces\ActiveRecord\Connection;
 use Gforces\ActiveRecord\DbExpression;
-use Gforces\ActiveRecord\Exception;
 use Kahlan\Plugin\Double;
 
-function setBaseProperty(string $property, mixed $value)
+/**
+ * @throws ReflectionException
+ */
+function setBaseProperty(string $property, mixed $value): void
 {
     $class = new ReflectionClass(Base::class);
     $property = $class->getProperty($property);
-    $property->setAccessible(true);
     $property->setValue($value);
 }
 
@@ -42,7 +44,7 @@ describe(Base::class, function () {
         });
         it('throws exception when object not found', function () {
             allow($this->modelClass)->toReceive('::findFirstByAttribute')->with('id', 1)->andReturn(null);
-            expect(fn() => $this->modelClass::find(1))->toThrow(new Exception("object with id 1 of type $this->modelClass not found"));
+            expect(fn() => $this->modelClass::find(1))->toThrow(new ActiveRecordException("object with id 1 of type $this->modelClass not found"));
         });
         it('generates valid query', function () {
             allow($this->statement)->toReceive('fetchAll')->andReturn([$this->model]);
@@ -190,8 +192,8 @@ describe(Base::class, function () {
         it('doesn\'t set connection to Base and other classes', function () {
             $this->modelClass::setConnection(Double::instance(['class' => Connection::class]));
             $otherClass = Double::classname(['extends' => Base::class]);
-            expect(fn() => $otherClass::getConnection())->toThrow(new Exception('Connection provider is not set'));
-            expect(fn() => Base::getConnection())->toThrow(new Exception('Connection provider is not set'));
+            expect(fn() => $otherClass::getConnection())->toThrow(new ActiveRecordException('Connection provider is not set'));
+            expect(fn() => Base::getConnection())->toThrow(new ActiveRecordException('Connection provider is not set'));
         });
     });
 
@@ -201,7 +203,7 @@ describe(Base::class, function () {
             setBaseProperty('connectionProviders', []);
         });
         it('throws exception when connection is not set at all', function () {
-            expect(fn() => $this->modelClass::getConnection())->toThrow(new Exception('Connection provider is not set'));
+            expect(fn() => $this->modelClass::getConnection())->toThrow(new ActiveRecordException('Connection provider is not set'));
         });
         it('returns base connection if own is not set', function () {
             Base::setConnection($connection = Double::instance(['class' => Connection::class]));
@@ -215,7 +217,7 @@ describe(Base::class, function () {
         it('it throws exception even it is set for different class', function () {
             $otherClass = Double::classname(['extends' => Base::class]);
             $otherClass::setConnection(Double::instance(['class' => Connection::class]));
-            expect(fn() => $this->modelClass::getConnection())->toThrow(new Exception('Connection provider is not set'));
+            expect(fn() => $this->modelClass::getConnection())->toThrow(new ActiveRecordException('Connection provider is not set'));
         });
         it('returns connection from own provider if both own and base connection are not set', function () {
             $provider = Double::instance(['implements' => Connection\Providers\Provider::class]);
@@ -275,7 +277,6 @@ describe(Base::class, function () {
             $this->connection;
             $class = new ReflectionClass($this->modelClass);
             $method = $class->getMethod('condition');
-            $method->setAccessible(true);
             $tests = [
                 "`name` = 'Smith'" => ['name', 'Smith'],
                 "`age` = 10" => ['age', 10],

@@ -4,7 +4,6 @@
 namespace Gforces\ActiveRecord;
 
 use Gforces\ActiveRecord\Connection\Providers\Provider;
-use Gforces\ActiveRecord\Exception\Validation;
 use JetBrains\PhpStorm\ArrayShape;
 use JetBrains\PhpStorm\Deprecated;
 use PDO;
@@ -34,17 +33,17 @@ class Base
     private array $originalValues = [];
 
     /**
-     * @throws Exception
+     * @throws ActiveRecordException
      */
     public static function find(int $id): static
     {
         // TODO: custom PK
         return static::findFirstByAttribute('id', $id)
-            ?: throw new Exception('object with id ' . $id . ' of type ' . static::class . ' not found');
+            ?: throw new ActiveRecordException('object with id ' . $id . ' of type ' . static::class . ' not found');
     }
 
     /**
-     * @throws Exception
+     * @throws ActiveRecordException
      * @return static[]
      */
     #[ArrayShape([Base::class])]
@@ -54,7 +53,7 @@ class Base
     }
 
     /**
-     * @throws Exception
+     * @throws ActiveRecordException
      */
     public static function findFirst(string | array $criteria = '', string $orderBy = ''): ?static
     {
@@ -62,7 +61,7 @@ class Base
     }
 
     /**
-     * @throws Exception
+     * @throws ActiveRecordException
      */
     public static function findFirstByAttribute(string $attribute, mixed $value, string $orderBy = ''): ?static
     {
@@ -70,7 +69,7 @@ class Base
     }
 
     /**
-     * @throws Exception
+     * @throws ActiveRecordException
      */
     #[Deprecated(replacement: '%class%::findFirst(%parametersList%)')]
     public static function findFirstByAttributes(array $attributes, string $orderBy = ''): ?static
@@ -79,7 +78,7 @@ class Base
     }
 
     /**
-     * @throws Exception
+     * @throws ActiveRecordException
      * @return static[]
      */
     public static function findAllBySql(string $query): array
@@ -91,7 +90,7 @@ class Base
     }
 
     /**
-     * @throws Exception
+     * @throws ActiveRecordException
      */
     public static function count(string | array $criteria = ''): int
     {
@@ -100,7 +99,7 @@ class Base
     }
 
     /**
-     * @throws Exception
+     * @throws ActiveRecordException
      */
     public static function insert(array $attributes, bool $ignoreDuplicates = false, string $onDuplicateKeyUpdate = ''): void
     {
@@ -115,7 +114,7 @@ class Base
     }
 
     /**
-     * @throws Exception
+     * @throws ActiveRecordException
      */
     public static function updateAll(array $attributes, array | string $condition = ''): void
     {
@@ -131,7 +130,7 @@ class Base
     }
 
     /**
-     * @throws Exception
+     * @throws ActiveRecordException
      */
     public static function deleteAll(array | string $condition = ''): void
     {
@@ -145,13 +144,13 @@ class Base
     }
 
     /**
-     * @throws Exception
+     * @throws ActiveRecordException
      */
     public static function getConnection(): Connection
     {
         try {
             return self::$connections[static::class] ??= static::getConnectionProvider()->getConnection();
-        } catch (Exception $e) {
+        } catch (ActiveRecordException $e) {
             if (static::class === self::class) {
                 throw $e;
             }
@@ -165,11 +164,11 @@ class Base
     }
 
     /**
-     * @throws Exception
+     * @throws ActiveRecordException
      */
     public static function getConnectionProvider(): Provider
     {
-        return self::$connectionProviders[static::class] ?? throw new Exception('Connection provider is not set');
+        return self::$connectionProviders[static::class] ?? throw new ActiveRecordException('Connection provider is not set');
     }
 
     public static function getTableName(): string
@@ -182,7 +181,7 @@ class Base
     }
 
     /**
-     * @throws Exception
+     * @throws ActiveRecordException
      */
     protected static function quoteIdentifier($identifier): string
     {
@@ -190,7 +189,7 @@ class Base
     }
 
     /**
-     * @throws Exception
+     * @throws ActiveRecordException
      */
     protected static function condition(string $attribute, mixed $value): string
     {
@@ -202,7 +201,7 @@ class Base
     }
 
     /**
-     * @throws Exception
+     * @throws ActiveRecordException
      */
     protected static function conditions(array $attributes, string $operator = 'AND'): string
     {
@@ -212,7 +211,7 @@ class Base
     }
 
     /**
-     * @throws Exception
+     * @throws ActiveRecordException
      */
     protected static function quoteValues(array $values): array
     {
@@ -220,26 +219,25 @@ class Base
     }
 
     /**
-     * @throws Exception
+     * @throws ActiveRecordException
      */
     protected static function quoteValue(mixed $value): mixed
     {
         return match (gettype($value)) {
             'string' => static::getConnection()->quote($value),
             'boolean' => intval($value),
-            'integer' => $value,
-            'double' => $value,
+            'integer', 'double' => $value,
             'NULL' => 'NULL',
             'object' => match (get_class($value)) {
                 DbExpression::class => $value,
-                default => throw new Exception('Invalid value type: ' . get_class($value)),
+                default => throw new ActiveRecordException('Invalid value type: ' . get_class($value)),
             },
-            default => throw new Exception('Invalid value type: ' . gettype($value)),
+            default => throw new ActiveRecordException('Invalid value type: ' . gettype($value)),
         };
     }
 
     /**
-     * @throws Exception
+     * @throws ActiveRecordException
      */
     protected static function buildQuery(string | array $criteria = '', string $orderBy = '', int $limit = null, int $offset = null, $select = '*', string $joins = ''): string
     {
@@ -260,36 +258,47 @@ class Base
         return $part ? " $prefix $part" : '';
     }
 
+    /**
+     * @throws ActiveRecordException
+     */
     private static function queryWherePart(string | array $criteria): string
     {
         return self::queryPart('WHERE', is_array($criteria) ? static::conditions($criteria) : $criteria);
     }
 
     /**
-     * @throws Exception
+     * @throws ActiveRecordException
      */
     private static function getQuotedTableName(): string
     {
         return static::quoteIdentifier(static::getTableName());
     }
 
+    /**
+     * @throws ReflectionException
+     */
     public function __construct()
     {
         $this->isNew = self::$createNewObject;
         if (static::$keepAttributeChanges) {
             $this->originalValues = $this->getAttributes();
         }
-        foreach (Association::getAll(static::class) as $association) {
-            $propertyName = $association->property->getName();
-            unset($this->{$propertyName});
+        foreach (Association::getProperties(static::class) as $property) {
+            unset($this->{$property->getName()});
         }
     }
 
+    /**
+     * @throws ReflectionException
+     */
     public function isValid(): bool
     {
         return count($this->getErrors(true)) == 0;
     }
 
+    /**
+     * @throws ReflectionException
+     */
     public function getErrors($validate = false): array
     {
         if ($validate) {
@@ -298,6 +307,9 @@ class Base
         return $this->errors;
     }
 
+    /**
+     * @throws ReflectionException
+     */
     public function getErrorMessages($validate = false): array
     {
         $messages = [];
@@ -307,10 +319,15 @@ class Base
         return $messages;
     }
 
+    /**
+     * @throws ReflectionException
+     * @throws ValidationException
+     * @throws ActiveRecordException
+     */
     public function save(bool $validate = true): void
     {
         if ($validate && !$this->isValid()) {
-            throw new Exception\Validation('validation failed on save');
+            throw new ValidationException('validation failed on save');
         }
         $values = $this->getAttributes();
         if ($this->isNew) {
@@ -329,7 +346,7 @@ class Base
     }
 
     /**
-     * @throws Exception
+     * @throws ActiveRecordException
      */
     public function remove(): void
     {
@@ -340,7 +357,7 @@ class Base
     }
 
     /**
-     * @throws Exception
+     * @throws ActiveRecordException
      */
     public function __get(string $name)
     {
@@ -354,26 +371,35 @@ class Base
         }
     }
 
+    /**
+     * @throws ReflectionException
+     */
     protected function validate(): void
     {
         foreach (Validator::getAll(static::class) as $validator) {
             try {
                 $validator->perform($this);
-            } catch (Validation $error) {
+            } catch (ValidationException $error) {
                 $this->errors[$validator->getPropertyName()][] = $error->getMessage();
             }
         }
     }
 
+    /**
+     * @throws ReflectionException
+     */
     protected function getAttributes(): array
     {
-        return Column::getObjectValues($this);
+        return Column::getValues($this);
     }
 
+    /**
+     * @throws ActiveRecordException
+     */
     protected function isAttributeChanged($attribute): bool
     {
         if (!static::$keepAttributeChanges) {
-            throw new Exception('Changes are not stored for this object');
+            throw new ActiveRecordException('Changes are not stored for this object');
         }
         if (array_key_exists($attribute, $this->originalValues)) {
             return $this->originalValues[$attribute] !== $this->$attribute;
@@ -381,12 +407,12 @@ class Base
         try {
             return Column::isPropertyInitialized($this, $attribute);
         } catch (ReflectionException $e) {
-            throw new Exception('Could nor check changes for invalid attribute', previous: $e);
+            throw new ActiveRecordException('Could nor check changes for invalid attribute', previous: $e);
         }
     }
 
     /**
-     * @throws Exception
+     * @throws ActiveRecordException
      */
     private function update(array $attributes): void
     {

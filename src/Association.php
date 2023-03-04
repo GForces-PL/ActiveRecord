@@ -10,55 +10,12 @@ use ReflectionClass;
 use ReflectionException;
 use ReflectionProperty;
 
-abstract class Association
+abstract class Association extends PropertyAttribute
 {
     public ReflectionProperty $property;
 
     abstract public function load(Base $object): Base|array|null;
     abstract public function save(Base $object): void;
-
-    /**
-     * @param string $class
-     * @return Association[]
-     * @throws ReflectionException
-     */
-    #[ArrayShape([Association::class])]
-    public static function getAll(string $class): array
-    {
-        $associations = [];
-        $classReflection = new ReflectionClass($class);
-        foreach ($classReflection->getProperties() as $propertyReflection) {
-            try {
-                $associations[] = self::getAssociationFromProperty($propertyReflection);
-            } catch (Exception) {
-            }
-        }
-        return $associations;
-    }
-
-    /**
-     * @throws ReflectionException
-     * @throws Exception
-     */
-    public static function get(string $class, string $property): Association
-    {
-        return self::getAssociationFromProperty(new ReflectionProperty($class, $property));
-    }
-
-    /**
-     * @throws Exception
-     */
-    private static function getAssociationFromProperty(ReflectionProperty $propertyReflection): Association
-    {
-        foreach ($propertyReflection->getAttributes() as $attribute) {
-            if (is_subclass_of($attribute->getName(), static::class)) {
-                $association = $attribute->newInstance();
-                $association->property = $propertyReflection;
-                return $association;
-            }
-        }
-        throw new Exception("Property $propertyReflection->name is not valid association");
-    }
 
     #[Pure]
     protected function getClassFromArrayShape(ReflectionProperty $property): string
