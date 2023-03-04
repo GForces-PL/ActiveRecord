@@ -347,13 +347,14 @@ class Base
 
     /**
      * @throws ActiveRecordException
+     * @throws ReflectionException
      */
     public function remove(): void
     {
         if ($this->isNew) {
             return;
         }
-        static::deleteAll(static::condition('id', $this->id));
+        static::deleteAll(PrimaryKey::getValues($this));
     }
 
     /**
@@ -413,12 +414,13 @@ class Base
 
     /**
      * @throws ActiveRecordException
+     * @throws ReflectionException
      */
     private function update(array $attributes): void
     {
         if ($this->isNew) {
             return;
         }
-        static::updateAll($attributes, static::condition('id', $this->id));
+        static::updateAll($attributes, PrimaryKey::getValues($this));
     }
 }
