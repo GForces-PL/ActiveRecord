@@ -2,7 +2,8 @@
 
 namespace Gforces\ActiveRecord;
 
-class AssociationException extends \Gforces\ActiveRecord\Exception\Association
-{
+use \Gforces\ActiveRecord\Exception\Association;
 
+class AssociationException extends Association
+{
 }
