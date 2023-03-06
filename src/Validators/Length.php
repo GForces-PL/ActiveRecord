@@ -5,13 +5,19 @@ namespace Gforces\ActiveRecord\Validators;
 
 use Attribute;
 use Gforces\ActiveRecord\Base;
+use Gforces\ActiveRecord\ValidationContext;
 use Gforces\ActiveRecord\Validator;
 use JetBrains\PhpStorm\Pure;
 
 #[Attribute(Attribute::TARGET_PROPERTY)]
 class Length extends Validator
 {
-    public function __construct(private readonly ?int $min = null, private readonly ?int $max = null, protected string|\Callable $message = '')
+    public function __construct(
+        private readonly ?int $min = null,
+        private readonly ?int $max = null,
+        protected string|\Callable $message = '',
+        protected ValidationContext $context = ValidationContext::always,
+    )
     {
     }
 
