@@ -55,17 +55,17 @@ class Base
     /**
      * @throws ActiveRecordException
      */
-    public static function findFirst(string | array $criteria = '', string $orderBy = ''): ?static
+    public static function findFirst(string | array $criteria = '', string $orderBy = '', int $offset = null): ?static
     {
-        return static::findAllBySql(static::buildQuery($criteria, $orderBy, 1))[0] ?? null;
+        return static::findAll($criteria, $orderBy, 1, $offset)[0] ?? null;
     }
 
     /**
      * @throws ActiveRecordException
      */
-    public static function findFirstByAttribute(string $attribute, mixed $value, string $orderBy = ''): ?static
+    public static function findFirstByAttribute(string $attribute, mixed $value, string $orderBy = '', int $offset = null): ?static
     {
-        return static::findFirst(static::condition($attribute, $value), $orderBy);
+        return static::findFirst(static::condition($attribute, $value), $orderBy, $offset);
     }
 
     /**
