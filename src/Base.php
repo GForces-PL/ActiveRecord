@@ -92,6 +92,15 @@ class Base
     /**
      * @throws ActiveRecordException
      */
+    public static function exists(string | array $criteria = ''): bool
+    {
+        $query = static::buildQuery($criteria);
+        return (bool) static::getConnection()->query("SELECT EXISTS($query)")->fetchColumn();
+    }
+
+    /**
+     * @throws ActiveRecordException
+     */
     public static function count(string | array $criteria = ''): int
     {
         $query = static::buildQuery($criteria, select: 'COUNT(*)');
