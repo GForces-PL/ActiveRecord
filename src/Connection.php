@@ -14,7 +14,7 @@ class Connection extends PDO
     protected Driver $driver;
 
     /**
-     * @throws Exception
+     * @throws ActiveRecordException
      */
     public function __construct(string $dsn, ?string $username = null, ?string $password = null, ?array $options = null)
     {
@@ -23,7 +23,7 @@ class Connection extends PDO
         $this->driver = match($this->getAttribute(PDO::ATTR_DRIVER_NAME)) {
             'mysql' => new Mysql(),
             'pgsql' => new Pgsql(),
-            default => throw new Exception('Unsupported database driver')
+            default => throw new ActiveRecordException('Unsupported database driver')
         };
     }
 

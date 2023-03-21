@@ -4,7 +4,7 @@
 namespace Gforces\ActiveRecord\Connection\Providers;
 
 
-use ActiveRecord\Exception;
+use Gforces\ActiveRecord\ActiveRecordException;
 use Gforces\ActiveRecord\Base;
 use Gforces\ActiveRecord\Connection;
 
@@ -15,7 +15,7 @@ class Dsn implements Provider
     }
 
     /**
-     * @throws Exception
+     * @throws ActiveRecordException
      */
     public function getConnection(): Connection
     {
