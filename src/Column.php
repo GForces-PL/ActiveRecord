@@ -37,7 +37,7 @@ class Column extends PropertyAttribute
             if ($column->autoIncrement === null) {
                 return $column->property;
             }
-        } catch (ActiveRecordException|ReflectionException $e) {
+        } catch (ActiveRecordException|ReflectionException) {
         }
         return null;
     }

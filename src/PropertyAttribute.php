@@ -3,6 +3,7 @@
 namespace Gforces\ActiveRecord;
 
 use ReflectionAttribute;
+use ReflectionClass;
 use ReflectionException;
 use ReflectionProperty;
 
@@ -62,7 +63,7 @@ abstract class PropertyAttribute
     public static function getProperties(string $class): array
     {
         $properties = [];
-        $classReflection = new \ReflectionClass($class);
+        $classReflection = new ReflectionClass($class);
         foreach ($classReflection->getProperties() as $property) {
             if (static::getPropertyAttributes($property)) {
                 $properties[$property->name] = $property;
