@@ -20,8 +20,6 @@ class Base
      */
     protected static bool $keepAttributeChanges = false;
 
-    private static bool $createNewObject = true;
-
     private static array $connections = [];
 
     private static array $connectionProviders = [];
@@ -78,14 +76,39 @@ class Base
     }
 
     /**
-     * @throws ActiveRecordException
      * @return static[]
+     * @throws ReflectionException
+     * @throws ActiveRecordException
      */
     public static function findAllBySql(string $query): array
     {
-        self::$createNewObject = false;
-        $objects = static::getConnection()->query($query)->fetchAll(PDO::FETCH_CLASS, static::class);
-        self::$createNewObject = true;
+        $class = new \ReflectionClass(static::class);
+        $statement = static::getConnection()->query($query);
+        $objects = [];
+        while ($row = $statement->fetchObject()) {
+            $object = $class->newInstanceWithoutConstructor();
+            $object->isNew = false;
+            foreach ($row as $key => $value) {
+                try {
+                    $property = $class->getProperty($key);
+                    $type = $property->getType()->getName();
+                    if (is_a($type, \UnitEnum::class, true)) {
+                        $property->setValue($object, (new \ReflectionEnum($type))->getCase($value)->getValue());
+                        continue;
+                    }
+                    if (is_a($type, \DateTime::class, true)) {
+                        $property->setValue($object, new \DateTime($value));
+                        continue;
+                    }
+                    $property->setValue($object, $value);
+                } catch (ReflectionException $e) {
+                    $object->$key = $value;
+                }
+            }
+            $object->__construct();
+            $objects[] = $object;
+        }
+//        $objects = static::getConnection()->query($query)->fetchAll(PDO::FETCH_CLASS, static::class);
         return $objects;
     }
 
@@ -237,12 +260,23 @@ class Base
             'boolean' => intval($value),
             'integer', 'double' => $value,
             'NULL' => 'NULL',
-            'object' => match (get_class($value)) {
-                DbExpression::class => $value,
-                default => throw new ActiveRecordException('Invalid value type: ' . get_class($value)),
-            },
+            'object' => self::quoteObjectValue($value),
             default => throw new ActiveRecordException('Invalid value type: ' . gettype($value)),
         };
+    }
+
+    protected static function quoteObjectValue(object $value): mixed
+    {
+        if ($value instanceof DbExpression) {
+            return (string) $value;
+        }
+        if ($value instanceof \UnitEnum) {
+            return static::getConnection()->quote($value->name);
+        }
+        if ($value instanceof \DateTime) {
+            return static::getConnection()->quote($value->format('Y-m-d H:i:s'));
+        }
+        throw new ActiveRecordException('Invalid value type: ' . get_class($value));
     }
 
     /**
@@ -288,7 +322,6 @@ class Base
      */
     public function __construct()
     {
-        $this->isNew = self::$createNewObject;
         if (static::$keepAttributeChanges) {
             $this->originalValues = $this->getAttributes();
         }
