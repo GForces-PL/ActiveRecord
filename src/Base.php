@@ -372,12 +372,18 @@ class Base
             throw new ValidationException('validation failed on save');
         }
         $values = $this->getAttributes();
+        $changedValues = [];
+        foreach ($values as $attribute => $value) {
+            if (!array_key_exists($attribute, $this->originalValues) || $value !== $this->originalValues[$attribute]) {
+                $changedValues[$attribute] = $value;
+            }
+        }
         if ($this->isNew) {
-            static::insert(array_diff_assoc($values, $this->originalValues));
+            static::insert($changedValues);
             Column::getAutoIncrementProperty(static::class)?->setValue($this, (int) static::getConnection()->lastInsertId());
             $this->isNew = false;
         } else {
-            $this->update(array_diff_assoc($values, $this->originalValues));
+            $this->update($changedValues);
         }
         if (static::$keepAttributeChanges) {
             $this->originalValues = $values;
