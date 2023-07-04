@@ -1,6 +1,6 @@
 # ActiveRecord
 
-A new implementation of the Active Record pattern using Attributes available since PHP8. This way there are no magic methods, just actually defined properties in models.
+A new implementation of the Active Record pattern using Attributes available since PHP8. No magic methods, no configuration just actually defined properties in models.
 
 ## Main Features
 
@@ -36,6 +36,16 @@ $vehicle->make = 'BMW';
 $vehicle->model = 'X1';
 $vehicle->save();
 ```
+
+#### Basic property types
+The followimg basic types are supported: _string_, _int_, _bool_, _double_.
+
+#### DateTime
+_\DateTime_ properties are stored in the database as formatted string 'Y-m-d H:i:s' and converted back to _\DateTime_ when retrieved.
+It is not necessary for the column in the database to be also of type DATE or DATETIME, but when converting an invalid value to a DateTime object it may throw an error.
+
+#### Enums
+If property is an enum it is stored in the database as a string of case name. A column in the database may or may not be of the enum type. When it is retrieved from the database it is converted to Enum case or will throw an error when has invalid value.  
 
 ### Relations
 
@@ -122,8 +132,14 @@ Vehicle::find($id);
 Vehicle::findAll($criteria, $orderBy, $limit, $offset, $select);
 Vehicle::findFirst($criteria, $orderBy);
 Vehicle::findFirstByAttribute($attribute, $value);
-Vehicle::findFirstByAttributes($attribute);
+Vehicle::findFirstByAttributes($attributes);
 Vehicle::findAllBySql($query);
+```
+### Criteria
+Criteria can be a string with SQL expression or just an assoc array of properties and theirs values. 
+```PHP
+Vehicle::findAll(['name' => 'Phil', 'male' => Sex::male, 'diabled' => false]);
+Vehicle::findAll("`name` = 'Phil' AND `sex` = 'male' AND `disabled` = 0");
 ```
 
 ### isNew property
@@ -131,7 +147,7 @@ This is a built-in property that determines whether an object is stored in the d
 
 ### Access to modified attributes
 There is a special property $keepAttributeChanges set on each model that decides if the object should keep the original values. For performance reasons, this functionality is disabled by default.
-If it is enabled, each object has access to the original values that were loaded from the database. Additionally it also optimises UPDATE queries with only changed values and do not execute at all if no value was changed.
+If it is enabled, each object has access to the original values that were loaded from the database. Additionally, it also optimises UPDATE queries with only changed values and do not execute at all if no value was changed.
 ```PHP
 use Gforces\ActiveRecord\Base;
 
@@ -151,7 +167,12 @@ $vehicle->save(); // UPDATE query is not executed
 
 ## Known limitations
 
-- currently, no custom primary keys are supported. You must have an $id property to use all the features
+- primary keys no fully implemented. With some relations wtill 'id' column is needed
 - not all relations fully implemented
 - only few sample validators implemented
 - no documentation, but code is self-documenting
+
+## Used by
+- [Puzzle Factory](https://puzzlefactory.com)
+- [SlidingTiles](https://slidingtiles.com)
+- [Puzzle Online](https://epuzzle.info)
