@@ -148,6 +148,24 @@ class Base
     /**
      * @throws ActiveRecordException
      */
+    public static function replaceByDelete(array $attributes): void
+    {
+        $table = static::getQuotedTableName();
+        $columns = implode(',', array_map([static::class, 'quoteIdentifier'], array_keys($attributes)));
+        $values = implode(',', static::quoteValues($attributes));
+        $command = "REPLACE INTO $table ($columns) VALUES ($values)";
+        static::getConnection()->exec($command);
+    }
+
+    public static function replaceByUpdate(array $attributes): void
+    {
+        $columns = implode(',', array_map(fn($column) => "$column = VALUES($column)", array_map([static::class, 'quoteIdentifier'], array_keys($attributes))));
+        static::insert($attributes, onDuplicateKeyUpdate: $columns);
+    }
+
+    /**
+     * @throws ActiveRecordException
+     */
     public static function updateAll(array $attributes, array | string $condition = ''): void
     {
         if (empty($attributes)) {
