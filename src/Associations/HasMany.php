@@ -10,7 +10,7 @@ use Gforces\ActiveRecord\Base;
 #[Attribute(Attribute::TARGET_PROPERTY)]
 class HasMany extends Association
 {
-    public function __construct(private string $relatedClass = '', private string $foreignKey = '', private string $orderBy = 'id')
+    public function __construct(private readonly string $relatedClass = '', private readonly string $foreignKey = '', private readonly string $orderBy = 'id')
     {
     }
 

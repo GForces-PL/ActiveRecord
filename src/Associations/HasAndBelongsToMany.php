@@ -11,7 +11,7 @@ use PDO;
 #[Attribute(Attribute::TARGET_PROPERTY)]
 class HasAndBelongsToMany extends Association
 {
-    public function __construct(private string $relatedClass = '', private array|string $intermediateTable = '', private string $objectForeignKey = '', private string $relatedForeignKey = '')
+    public function __construct(private readonly string $relatedClass = '', private readonly array|string $intermediateTable = '', private readonly string $objectForeignKey = '', private readonly string $relatedForeignKey = '')
     {
     }
 

@@ -6,7 +6,7 @@ use JetBrains\PhpStorm\Pure;
 
 class DbExpression
 {
-    public function __construct(private string $expression)
+    public function __construct(private readonly string $expression)
     {
     }
 

@@ -14,12 +14,13 @@ class HasOne extends Association
      * @param string $foreignKey Custom foreign key.
      * @param bool $createOnEmpty Determines if new instance of related object should be automatically created instead of returning null when not found in the database
      */
-    public function __construct(private string $foreignKey = '', private bool $createOnEmpty = false)
+    public function __construct(private readonly string $foreignKey = '', private readonly bool $createOnEmpty = false)
     {
     }
 
     public function load(Base $object): ?Base
     {
+        /** @var class-string<Base> $class */
         $class = $this->property->getType()->getName();
         if ($object->isNew) {
             return $this->createOnEmpty ? new $class : null;
