@@ -133,7 +133,7 @@ class Base
     /**
      * @throws ActiveRecordException
      */
-    public static function insert(array $attributes, bool $ignoreDuplicates = false, string $onDuplicateKeyUpdate = ''): void
+    public static function insert(array $attributes, bool $ignoreDuplicates = false, string $onDuplicateKeyUpdate = ''): false | int
     {
         $table = static::getQuotedTableName();
         $columns = implode(',', array_map([static::class, 'quoteIdentifier'], array_keys($attributes)));
@@ -142,50 +142,53 @@ class Base
         if ($onDuplicateKeyUpdate) {
             $command .= " ON DUPLICATE KEY UPDATE $onDuplicateKeyUpdate";
         }
-        static::getConnection()->exec($command);
+        return static::getConnection()->exec($command);
     }
 
     /**
      * @throws ActiveRecordException
      */
-    public static function replaceByDelete(array $attributes): void
+    public static function replaceByDelete(array $attributes): false | int
     {
         $table = static::getQuotedTableName();
         $columns = implode(',', array_map([static::class, 'quoteIdentifier'], array_keys($attributes)));
         $values = implode(',', static::quoteValues($attributes));
         $command = "REPLACE INTO $table ($columns) VALUES ($values)";
-        static::getConnection()->exec($command);
-    }
-
-    public static function replaceByUpdate(array $attributes): void
-    {
-        $columns = implode(',', array_map(fn($column) => "$column = VALUES($column)", array_map([static::class, 'quoteIdentifier'], array_keys($attributes))));
-        static::insert($attributes, onDuplicateKeyUpdate: $columns);
+        return static::getConnection()->exec($command);
     }
 
     /**
      * @throws ActiveRecordException
      */
-    public static function updateAll(array $attributes, array | string $condition = ''): void
+    public static function replaceByUpdate(array $attributes): false | int
+    {
+        $columns = implode(',', array_map(fn($column) => "$column = VALUES($column)", array_map([static::class, 'quoteIdentifier'], array_keys($attributes))));
+        return static::insert($attributes, onDuplicateKeyUpdate: $columns);
+    }
+
+    /**
+     * @throws ActiveRecordException
+     */
+    public static function updateAll(array $attributes, array | string $condition = ''): false | int
     {
         if (empty($attributes)) {
-            return;
+            return 0;
         }
         $table = static::getQuotedTableName();
         $values = implode(', ', array_map(
             fn($attribute, $value) => static::quoteIdentifier($attribute) . ' = ' . static::quoteValue($value),
             array_keys($attributes), array_values($attributes))
         );
-        static::getConnection()->exec("UPDATE $table SET $values" . self::queryWherePart($condition));
+        return static::getConnection()->exec("UPDATE $table SET $values" . self::queryWherePart($condition));
     }
 
     /**
      * @throws ActiveRecordException
      */
-    public static function deleteAll(array | string $condition = ''): void
+    public static function deleteAll(array | string $condition = ''): false | int
     {
         $table = static::getQuotedTableName();
-        static::getConnection()->exec("DELETE FROM $table" . self::queryWherePart($condition));
+        return static::getConnection()->exec("DELETE FROM $table" . self::queryWherePart($condition));
     }
 
     public static function setConnection(Connection $connection): void
