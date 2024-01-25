@@ -16,6 +16,11 @@
       "Gforces\\ActiveRecord\\": "src"
     }
   },
+  "autoload-dev": {
+    "psr-4": {
+      "Fixtures\\": "tests/Fixtures"
+    }
+  },
   "require": {
     "php": ">=8.0",
     "ext-pdo": "*"

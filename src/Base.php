@@ -1,13 +1,16 @@
 <?php
 
-
 namespace Gforces\ActiveRecord;
 
+use DateTime;
 use Gforces\ActiveRecord\Connection\Providers\Provider;
+use IntBackedEnum;
 use JetBrains\PhpStorm\ArrayShape;
 use JetBrains\PhpStorm\Deprecated;
-use PDO;
 use ReflectionException;
+use StringBackedEnum;
+use Throwable;
+use UnitEnum;
 
 class Base
 {
@@ -41,11 +44,11 @@ class Base
     }
 
     /**
-     * @throws ActiveRecordException
      * @return static[]
+     * @throws ActiveRecordException
      */
     #[ArrayShape([Base::class])]
-    public static function findAll(string | array $criteria = '', string $orderBy = '', int $limit = null, int $offset = null, string $select = '*'): array
+    public static function findAll(string|array $criteria = '', string $orderBy = '', int $limit = null, int $offset = null, string $select = '*'): array
     {
         return static::findAllBySql(static::buildQuery($criteria, $orderBy, $limit, $offset, $select));
     }
@@ -53,7 +56,7 @@ class Base
     /**
      * @throws ActiveRecordException
      */
-    public static function findFirst(string | array $criteria = '', string $orderBy = '', int $offset = null): ?static
+    public static function findFirst(string|array $criteria = '', string $orderBy = '', int $offset = null): ?static
     {
         return static::findAll($criteria, $orderBy, 1, $offset)[0] ?? null;
     }
@@ -77,7 +80,6 @@ class Base
 
     /**
      * @return static[]
-     * @throws ReflectionException
      * @throws ActiveRecordException
      */
     public static function findAllBySql(string $query): array
@@ -85,37 +87,41 @@ class Base
         $class = new \ReflectionClass(static::class);
         $statement = static::getConnection()->query($query);
         $objects = [];
-        while ($row = $statement->fetchObject()) {
-            $object = $class->newInstanceWithoutConstructor();
-            $object->isNew = false;
-            foreach ($row as $key => $value) {
-                try {
+
+        try {
+            while ($row = $statement->fetchObject()) {
+                $object = $class->newInstanceWithoutConstructor();
+                $object->isNew = false;
+                foreach ($row as $key => $value) {
                     $property = $class->getProperty($key);
                     $type = $property->getType()->getName();
-                    if (is_a($type, \UnitEnum::class, true)) {
+                    if (is_a($type, \BackedEnum::class, true)) {
+                        $property->setValue($object, $type::from($value));
+                        continue;
+                    }
+                    if (is_a($type, UnitEnum::class, true)) {
                         $property->setValue($object, (new \ReflectionEnum($type))->getCase($value)->getValue());
                         continue;
                     }
-                    if (is_a($type, \DateTime::class, true)) {
-                        $property->setValue($object, new \DateTime($value));
+                    if (is_a($type, DateTime::class, true)) {
+                        $property->setValue($object, new DateTime($value));
                         continue;
                     }
                     $property->setValue($object, $value);
-                } catch (ReflectionException $e) {
-                    $object->$key = $value;
                 }
+                $object->__construct();
+                $objects[] = $object;
             }
-            $object->__construct();
-            $objects[] = $object;
+        } catch (Throwable $e) {
+            throw new ActiveRecordException($e->getMessage(), previous: $e);
         }
-//        $objects = static::getConnection()->query($query)->fetchAll(PDO::FETCH_CLASS, static::class);
         return $objects;
     }
 
     /**
      * @throws ActiveRecordException
      */
-    public static function exists(string | array $criteria = ''): bool
+    public static function exists(string|array $criteria = ''): bool
     {
         $query = static::buildQuery($criteria);
         return (bool) static::getConnection()->query("SELECT EXISTS($query)")->fetchColumn();
@@ -124,7 +130,7 @@ class Base
     /**
      * @throws ActiveRecordException
      */
-    public static function count(string | array $criteria = ''): int
+    public static function count(string|array $criteria = ''): int
     {
         $query = static::buildQuery($criteria, select: 'COUNT(*)');
         return (int) static::getConnection()->query($query)->fetchColumn();
@@ -133,7 +139,7 @@ class Base
     /**
      * @throws ActiveRecordException
      */
-    public static function insert(array $attributes, bool $ignoreDuplicates = false, string $onDuplicateKeyUpdate = ''): false | int
+    public static function insert(array $attributes, bool $ignoreDuplicates = false, string $onDuplicateKeyUpdate = ''): false|int
     {
         $table = static::getQuotedTableName();
         $columns = implode(',', array_map([static::class, 'quoteIdentifier'], array_keys($attributes)));
@@ -148,7 +154,7 @@ class Base
     /**
      * @throws ActiveRecordException
      */
-    public static function replaceByDelete(array $attributes): false | int
+    public static function replaceByDelete(array $attributes): false|int
     {
         $table = static::getQuotedTableName();
         $columns = implode(',', array_map([static::class, 'quoteIdentifier'], array_keys($attributes)));
@@ -160,7 +166,7 @@ class Base
     /**
      * @throws ActiveRecordException
      */
-    public static function replaceByUpdate(array $attributes): false | int
+    public static function replaceByUpdate(array $attributes): false|int
     {
         $columns = implode(',', array_map(fn($column) => "$column = VALUES($column)", array_map([static::class, 'quoteIdentifier'], array_keys($attributes))));
         return static::insert($attributes, onDuplicateKeyUpdate: $columns);
@@ -169,15 +175,19 @@ class Base
     /**
      * @throws ActiveRecordException
      */
-    public static function updateAll(array $attributes, array | string $condition = ''): false | int
+    public static function updateAll(array $attributes, array|string $condition = ''): false|int
     {
         if (empty($attributes)) {
             return 0;
         }
         $table = static::getQuotedTableName();
-        $values = implode(', ', array_map(
-            fn($attribute, $value) => static::quoteIdentifier($attribute) . ' = ' . static::quoteValue($value),
-            array_keys($attributes), array_values($attributes))
+        $values = implode(
+            ', ',
+            array_map(
+                fn($attribute, $value) => static::quoteIdentifier($attribute) . ' = ' . static::quoteValue($value),
+                array_keys($attributes),
+                array_values($attributes)
+            )
         );
         return static::getConnection()->exec("UPDATE $table SET $values" . self::queryWherePart($condition));
     }
@@ -185,7 +195,7 @@ class Base
     /**
      * @throws ActiveRecordException
      */
-    public static function deleteAll(array | string $condition = ''): false | int
+    public static function deleteAll(array|string $condition = ''): false|int
     {
         $table = static::getQuotedTableName();
         return static::getConnection()->exec("DELETE FROM $table" . self::queryWherePart($condition));
@@ -247,10 +257,10 @@ class Base
     protected static function condition(string $attribute, mixed $value): string
     {
         return static::quoteIdentifier($attribute) . match (gettype($value)) {
-            'NULL' => ' IS NULL',
-            'array' => ' IN (' . implode(', ', static::quoteValues($value)) . ')',
-            default => ' = ' . static::quoteValue($value),
-        };
+                'NULL' => ' IS NULL',
+                'array' => ' IN (' . implode(', ', static::quoteValues($value)) . ')',
+                default => ' = ' . static::quoteValue($value),
+            };
     }
 
     /**
@@ -258,7 +268,8 @@ class Base
      */
     protected static function conditions(array $attributes, string $operator = 'AND'): string
     {
-        return implode(" $operator ",
+        return implode(
+            " $operator ",
             array_map(fn($attribute, $value) => static::condition($attribute, $value), array_keys($attributes), array_values($attributes))
         );
     }
@@ -286,15 +297,24 @@ class Base
         };
     }
 
+    /**
+     * @throws ActiveRecordException
+     */
     protected static function quoteObjectValue(object $value): mixed
     {
         if ($value instanceof DbExpression) {
             return (string) $value;
         }
-        if ($value instanceof \UnitEnum) {
+        if ($value instanceof IntBackedEnum) {
+            return $value->value;
+        }
+        if ($value instanceof StringBackedEnum) {
+            return static::getConnection()->quote($value->value);
+        }
+        if ($value instanceof UnitEnum) {
             return static::getConnection()->quote($value->name);
         }
-        if ($value instanceof \DateTime) {
+        if ($value instanceof DateTime) {
             return static::getConnection()->quote($value->format('Y-m-d H:i:s'));
         }
         throw new ActiveRecordException('Invalid value type: ' . get_class($value));
@@ -303,7 +323,7 @@ class Base
     /**
      * @throws ActiveRecordException
      */
-    protected static function buildQuery(string | array $criteria = '', string $orderBy = '', int $limit = null, int $offset = null, $select = '*', string $joins = ''): string
+    protected static function buildQuery(string|array $criteria = '', string $orderBy = '', int $limit = null, int $offset = null, $select = '*', string $joins = ''): string
     {
         $table = static::getQuotedTableName();
         if ($select === '*' && $joins) {
@@ -325,7 +345,7 @@ class Base
     /**
      * @throws ActiveRecordException
      */
-    private static function queryWherePart(string | array $criteria): string
+    private static function queryWherePart(string|array $criteria): string
     {
         return self::queryPart('WHERE', is_array($criteria) ? static::conditions($criteria) : $criteria);
     }
@@ -344,7 +364,7 @@ class Base
     public function __construct()
     {
         if (static::$keepAttributeChanges) {
-            $this->originalValues = $this->getAttributes();
+            $this->originalValues = $this->getValues();
         }
         foreach (Association::getProperties(static::class) as $property) {
             unset($this->{$property->getName()});
@@ -392,7 +412,7 @@ class Base
         if ($validate && !$this->isValid()) {
             throw new ValidationException('validation failed on save');
         }
-        $values = $this->getAttributes();
+        $values = $this->getValues();
         $changedValues = [];
         foreach ($values as $attribute => $value) {
             if (!array_key_exists($attribute, $this->originalValues) || $value !== $this->originalValues[$attribute]) {
@@ -458,7 +478,7 @@ class Base
     /**
      * @throws ReflectionException
      */
-    protected function getAttributes(): array
+    protected function getValues(): array
     {
         return Column::getValues($this);
     }

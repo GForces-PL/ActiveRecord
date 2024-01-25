@@ -1,7 +1,14 @@
 <?php
 
+use Fixtures\HttpStatusCode;
+use Fixtures\Simple;
+use Fixtures\State;
+use Fixtures\WithBackedEnumProperty;
+use Fixtures\WithDateTimeProperty;
+use Fixtures\WithUnitEnumProperty;
 use Gforces\ActiveRecord\ActiveRecordException;
 use Gforces\ActiveRecord\Base;
+use Gforces\ActiveRecord\Column;
 use Gforces\ActiveRecord\Connection;
 use Gforces\ActiveRecord\DbExpression;
 use Kahlan\Plugin\Double;
@@ -9,35 +16,38 @@ use Kahlan\Plugin\Double;
 /**
  * @throws ReflectionException
  */
-function setBaseProperty(string $property, mixed $value): void
+function setBaseProperty(string $class, string $property, mixed $value): void
 {
-    $class = new ReflectionClass(Base::class);
+    $class = new ReflectionClass($class);
     $property = $class->getProperty($property);
     $property->setValue($value);
 }
 
 describe(Base::class, function () {
-    beforeEach(function () {
-        $this->modelClass = Double::classname(['extends' => Base::class]);
-        $this->model = new $this->modelClass;
+    given('modelClass', function() {
+        $class = Double::classname(['extends' => Base::class]);
+        allow($class)->toReceive('::getTableName')->andReturn('table');
+        $class::setConnection($this->connection);
+        return $class;
     });
+
+    given('model', fn () => new $this->modelClass);
 
     given('connection', function () {
         $connection = Double::instance(['class' => Connection::class]);
-        allow($this->modelClass)->toReceive('::getQuotedTableName')->andReturn('`table`');
-        allow($this->modelClass)->toReceive('::getConnection')->andReturn($connection);
         allow($connection)->toReceive('quote')->andRun(fn($value) => "'$value'");
         allow($connection)->toReceive('quoteIdentifier')->andRun(fn($identifier) => "`$identifier`");
         return $connection;
     });
 
-    given('statement', function () {
-        $statement = Double::instance(['class' => Connection\Statement::class]);
-        allow($this->connection)->toReceive('query')->andReturn($statement);
-        return $statement;
-    });
+    given('statement', fn () => Double::instance(['class' => Connection\Statement::class]));
 
     describe('::find()', function () {
+        it('uses findFirstByAttribute', function () {
+            allow($this->modelClass)->toReceive('::findFirstByAttribute')->andReturn($this->model);
+            expect($this->modelClass)->toReceive('::findFirstByAttribute')->with('id', 100)->once();
+            $this->modelClass::find(100);
+        });
         it('allows find object with id', function () {
             allow($this->modelClass)->toReceive('::findFirstByAttribute')->with('id', 1)->andReturn($this->model);
             expect($this->modelClass::find(1))->toBe($this->model);
@@ -46,52 +56,47 @@ describe(Base::class, function () {
             allow($this->modelClass)->toReceive('::findFirstByAttribute')->with('id', 1)->andReturn(null);
             expect(fn() => $this->modelClass::find(1))->toThrow(new ActiveRecordException("object with id 1 of type $this->modelClass not found"));
         });
-        it('generates valid query', function () {
-            allow($this->statement)->toReceive('fetchAll')->andReturn([$this->model]);
-            expect($this->connection)->toReceive('query')->with("SELECT * FROM `table` WHERE `id` = 100 LIMIT 1");
-            $this->modelClass::find(100);
-        });
     });
 
     describe('::findAll()', function () {
-        it('it returns all objects using built query', function () {
+        it('returns all objects using query builder', function () {
             allow($this->modelClass)->toReceive('::buildQuery')->andReturn('query');
             allow($this->modelClass)->toReceive('::findAllBySql')->with('query')->andReturn([1, 2, 3]);
-            expect($this->modelClass)->toReceive('::buildQuery')->with('', 'id ASC', null, null, '*');
+            expect($this->modelClass)->toReceive('::buildQuery')->with('', '', null, null, '*');
             expect($this->modelClass::findAll())->toBe([1, 2, 3]);
         });
-        it('generates valid query to find all object with default order', function () {
-            allow($this->statement)->toReceive('fetchAll')->andReturn([$this->model]);
-            expect($this->connection)->toReceive('query')->with("SELECT * FROM `table` ORDER BY id ASC");
+        it('generates valid query to find all object without other params', function () {
+            allow($this->modelClass)->toReceive('::findAllBySql')->andReturn([]);
+            expect($this->modelClass)->toReceive('::findAllBySql')->with("SELECT * FROM `table`")->once();
             $this->modelClass::findAll();
+        });
+        it('allows set $criteria, $orderBy, $limit, $offset and $select params', function () {
+            $query = "SELECT * FROM `table` WHERE criteria ORDER BY id LIMIT 100 OFFSET 200";
+            allow($this->modelClass)->toReceive('::findAllBySql')->andReturn([]);
+            expect($this->modelClass)->toReceive('::findAllBySql')->with($query)->once();
+            $this->modelClass::findAll('criteria', 'id', 100, 200);
         });
     });
 
     describe('::findFirst()', function () {
-        it('it returns only first object using built query', function () {
-            allow($this->modelClass)->toReceive('::buildQuery')->andReturn('query');
-            allow($this->modelClass)->toReceive('::findAllBySql')->with('query')->andReturn([$this->model, new $this->modelClass]);
+        it('uses ::findAll with limit 1', function() {
+            allow($this->modelClass)->toReceive('::findAll')->with('', '', 1, null)->andReturn([]);
+            expect($this->modelClass)->toReceive('::findAll')->with('', '', 1, null)->once();
+            $this->modelClass::findFirst();
+        });
+        it('allows set $criteria, $orderBy and $offset params', function () {
+            allow($this->modelClass)->toReceive('::findAll')->with('criteria', 'id', 1, 100)->andReturn([]);
+            expect($this->modelClass)->toReceive('::findAll')->with('criteria', 'id', 1, 100)->once();
+            $this->modelClass::findFirst('criteria', 'id', 100);
+        });
+
+        it('it returns only first object when available', function () {
+            allow($this->modelClass)->toReceive('::findAll')->andReturn([$this->model]);
             expect($this->modelClass::findFirst())->toBe($this->model);
         });
         it('it returns null if no results', function () {
-            allow($this->modelClass)->toReceive('::buildQuery')->andReturn('query');
-            allow($this->modelClass)->toReceive('::findAllBySql')->with('query')->andReturn([]);
+            allow($this->modelClass)->toReceive('::findAll')->andReturn([]);
             expect($this->modelClass::findFirst())->toBe(null);
-        });
-        it('adds limit 1 to query', function () {
-            allow($this->modelClass)->toReceive('::buildQuery')->with('criteria', 'order', 1)->andReturn('query');
-            allow($this->modelClass)->toReceive('::findAllBySql')->with('query')->andReturn([$this->model, new $this->modelClass]);
-            expect($this->modelClass::findFirst('criteria', 'order'))->toBe($this->model);
-        });
-        it('generates valid query with criteria and order', function () {
-            allow($this->statement)->toReceive('fetchAll')->andReturn([$this->model]);
-            expect($this->connection)->toReceive('query')->with("SELECT * FROM `table` WHERE criteria ORDER BY custom_order LIMIT 1");
-            $this->modelClass::findFirst('criteria', 'custom_order');
-        });
-        it('generates valid query with array criteria', function () {
-            allow($this->statement)->toReceive('fetchAll')->andReturn([$this->model]);
-            expect($this->connection)->toReceive('query')->with("SELECT * FROM `table` WHERE `col1` = 'val1' AND `col2` = 'val2' LIMIT 1");
-            $this->modelClass::findFirst(['col1' => 'val1', 'col2' => 'val2']);
         });
     });
 
@@ -100,11 +105,6 @@ describe(Base::class, function () {
             allow($this->modelClass)->toReceive('::condition')->with('name', 'value')->andReturn('criteria');
             allow($this->modelClass)->toReceive('::findFirst')->with('criteria', 'order')->andReturn($this->model);
             expect($this->modelClass::findFirstByAttribute('name', 'value', 'order'))->toBe($this->model);
-        });
-        it('generates valid query', function () {
-            allow($this->statement)->toReceive('fetchAll')->andReturn([$this->model]);
-            expect($this->connection)->toReceive('query')->with("SELECT * FROM `table` WHERE `name` = 'value' LIMIT 1");
-            $this->modelClass::findFirstByAttribute('name', 'value');
         });
     });
 
@@ -115,70 +115,102 @@ describe(Base::class, function () {
             allow($this->modelClass)->toReceive('::findFirst')->with('criteria1 AND criteria2', 'order')->andReturn($this->model);
             expect($this->modelClass::findFirstByAttributes(['name' => 'value1', 'key' => 'value2'], 'order'))->toBe($this->model);
         });
-        it('generates valid query', function () {
-            allow($this->statement)->toReceive('fetchAll')->andReturn([$this->model]);
-            expect($this->connection)->toReceive('query')->with("SELECT * FROM `table` WHERE `name` = 'Smith' AND `age` = 20 AND `role` IS NULL LIMIT 1");
-            $this->modelClass::findFirstByAttributes(['name' => 'Smith', 'age' => 20, 'role' => null]);
-        });
     });
 
     describe('::findAllBySql()', function () {
-        it('it calls PDO prepare and execute methods for results', function () {
-            allow($this->statement)->toReceive('fetchAll')->with(PDO::FETCH_CLASS, $this->modelClass)->andReturn([$this->model]);
-            expect($this->connection)->toReceive('query')->with('query');
-            expect($this->modelClass::findAllBySql('query'))->toBe([$this->model]);
+        it('it return objects from database rows', function () {
+            $rows = [
+                (object) ['id' => 100],
+                (object) ['id' => 300],
+                (object) ['id' => 200],
+            ];
+            allow($this->connection)->toReceive('query')->with('query')->andReturn($this->statement);
+            allow($this->statement)->toReceive('fetchObject')->andReturn(...[...$rows, null]);
+
+            Simple::setConnection($this->connection);
+
+            $models = Simple::findAllBySql('query');
+            expect(count($models))->toBe(3);
+            expect($models[0]->id)->toBe(100);
+            expect($models[1]->id)->toBe(300);
+            expect($models[2]->id)->toBe(200);
+            expect($models[0])->toBeAnInstanceOf(Simple::class);
         });
     });
 
     describe('::count()', function () {
-        it('it calls PDO query built with count(*)', function () {
+        it('it calls PDO query with count(*)', function () {
             allow($this->modelClass)->toReceive('::buildQuery')->andReturn('query');
+            allow($this->connection)->toReceive('query')->with('query')->andReturn($this->statement);
             allow($this->statement)->toReceive('fetchColumn')->andReturn(100);
             expect($this->modelClass)->toReceive('::buildQuery')->with('criteria', '', null, null, 'COUNT(*)');
             expect($this->connection)->toReceive('query')->with('query');
             expect($this->modelClass::count('criteria'))->toBe(100);
         });
-        it('generates valid query', function () {
-            allow($this->statement)->toReceive('fetchColumn')->andReturn(100);
-            expect($this->connection)->toReceive('query')->with("SELECT COUNT(*) FROM `table` WHERE criteria");
-            $this->modelClass::count('criteria');
+    });
+
+    describe('::exists()', function () {
+        it('it returns true if EXISTS query returns 1', function () {
+            allow($this->modelClass)->toReceive('::buildQuery')->andReturn('query');
+            allow($this->connection)->toReceive('query')->with('SELECT EXISTS(query)')->andReturn($this->statement);
+            expect($this->modelClass)->toReceive('::buildQuery')->with('criteria');
+            expect($this->connection)->toReceive('query')->with('SELECT EXISTS(query)');
+
+            allow($this->statement)->toReceive('fetchColumn')->andReturn(1);
+            expect($this->modelClass::exists('criteria'))->toBe(true);
+        });
+        it('it returns false if EXISTS query returns 0', function () {
+            allow($this->modelClass)->toReceive('::buildQuery')->andReturn('query');
+            allow($this->connection)->toReceive('query')->with('SELECT EXISTS(query)')->andReturn($this->statement);
+            expect($this->modelClass)->toReceive('::buildQuery')->with('criteria');
+            expect($this->connection)->toReceive('query')->with('SELECT EXISTS(query)');
+
+            allow($this->statement)->toReceive('fetchColumn')->andReturn(0);
+            expect($this->modelClass::exists('criteria'))->toBe(false);
         });
     });
 
     describe('::insert()', function () {
         it('it execute INSERT command', function () {
+            allow($this->connection)->toReceive('exec')->andReturn(1);
             expect($this->connection)->toReceive('exec')->with("INSERT INTO `table` (`name`,`age`,`role`) VALUES ('Smith',20,NULL)");
             $this->modelClass::insert(['name' => 'Smith', 'age' => 20, 'role' => null]);
         });
         it('it ads IGNORE to INSERT command', function () {
+            allow($this->connection)->toReceive('exec')->andReturn(1);
             expect($this->connection)->toReceive('exec')->with("INSERT IGNORE INTO `table` (`name`,`age`,`role`) VALUES ('Smith',20,NULL)");
             $this->modelClass::insert(['name' => 'Smith', 'age' => 20, 'role' => null], true);
         });
         it('it ads ON DUPLICATE KEY UPDATE to INSERT command', function () {
+            allow($this->connection)->toReceive('exec')->andReturn(1);
             expect($this->connection)->toReceive('exec')->with("INSERT INTO `table` (`name`,`age`,`role`) VALUES ('Smith',20,NULL) ON DUPLICATE KEY UPDATE `name` = 'Jones'");
             $this->modelClass::insert(['name' => 'Smith', 'age' => 20, 'role' => null], onDuplicateKeyUpdate: "`name` = 'Jones'");
         });
         it('allows to use DbExpression in attributes', function () {
+            allow($this->connection)->toReceive('exec')->andReturn(1);
             expect($this->connection)->toReceive('exec')->with("INSERT INTO `table` (`updated_at`) VALUES (NOW())");
             $this->modelClass::insert(['updated_at' => DbExpression::now()]);
         });
     });
 
     describe('::updateAll()', function () {
-        it('it do nothing with empty attributes', function () {
+        it('it does nothing with empty attributes', function () {
             expect($this->modelClass)->not->toReceive('::getQuotedTableName');
             expect($this->modelClass)->not->toReceive('::getConnection');
             $this->modelClass::updateAll([]);
         });
-        it('it execute UPDATE command without condition', function () {
+        it('it executes UPDATE command without condition', function () {
+            allow($this->connection)->toReceive('exec')->andReturn(1);
             expect($this->connection)->toReceive('exec')->with("UPDATE `table` SET `name` = 'Smith', `age` = 20, `role` = NULL");
             $this->modelClass::updateAll(['name' => 'Smith', 'age' => 20, 'role' => null]);
         });
         it('allows to use DbExpression in attributes', function () {
+            allow($this->connection)->toReceive('exec')->andReturn(1);
             expect($this->connection)->toReceive('exec')->with("UPDATE `table` SET `updated_at` = NOW()");
             $this->modelClass::updateAll(['updated_at' => DbExpression::now()]);
         });
         it('allows to set criteria', function () {
+            allow($this->connection)->toReceive('exec')->andReturn(1);
             expect($this->connection)->toReceive('exec')->with("UPDATE `table` SET `attribute` = 'value' WHERE criteria");
             $this->modelClass::updateAll(['attribute' => 'value'], 'criteria');
         });
@@ -186,8 +218,10 @@ describe(Base::class, function () {
 
     describe('::setConnection', function () {
         it('allows to set connections', function () {
-            $this->modelClass::setConnection($connection = Double::instance(['class' => Connection::class]));
-            expect($this->modelClass::getConnection())->toBe($connection);
+            $connection = Double::instance(['class' => Connection::class]);
+            $modelClass = $this->modelClass;
+            $modelClass::setConnection($connection);
+            expect($modelClass::getConnection())->toBe($connection);
         });
         it('doesn\'t set connection to Base and other classes', function () {
             $this->modelClass::setConnection(Double::instance(['class' => Connection::class]));
@@ -199,8 +233,11 @@ describe(Base::class, function () {
 
     describe('::getConnection', function () {
         afterEach(function() {
-            setBaseProperty('connections', []);
-            setBaseProperty('connectionProviders', []);
+            setBaseProperty(Base::class,'connections', []);
+            setBaseProperty(Base::class, 'connectionProviders', []);
+        });
+        given('modelClass', function() {
+            return Double::classname(['extends' => Base::class]);
         });
         it('throws exception when connection is not set at all', function () {
             expect(fn() => $this->modelClass::getConnection())->toThrow(new ActiveRecordException('Connection provider is not set'));
@@ -274,7 +311,6 @@ describe(Base::class, function () {
 
     describe('::condition', function () {
         it('it builds correct condition for various types', function () {
-            $this->connection;
             $class = new ReflectionClass($this->modelClass);
             $method = $class->getMethod('condition');
             $tests = [
@@ -288,6 +324,133 @@ describe(Base::class, function () {
             foreach ($tests as $result => $params) {
                 expect($method->invoke(null, ...$params))->toBe($result);
             }
+        });
+    });
+
+    describe('UnitEnum property', function() {
+        it('can load object with default values', function() {
+            $rows = [
+                (object) ['id' => '1'],
+            ];
+            allow($this->connection)->toReceive('query')->andReturn($this->statement);
+            allow($this->statement)->toReceive('fetchObject')->andReturn(...[...$rows, null]);
+            WithUnitEnumProperty::setConnection($this->connection);
+
+            $models = WithUnitEnumProperty::findAllBySql('query');
+            expect(Column::isPropertyInitialized($models[0], 'state'))->toBe(false);
+            expect(Column::isPropertyInitialized($models[0], 'nullableState'))->toBe(false);
+            expect($models[0]->stateDefaultNull)->toBe(null);
+            expect($models[0]->stateDefaultOff)->toBe(State::off);
+        });
+
+        it('can load object with correct values', function() {
+            $rows = [
+                (object) ['id' => '2', 'state' => 'on', 'nullableState' => 'on', 'stateDefaultNull' => 'on', 'stateDefaultOff' => 'on'],
+            ];
+            allow($this->connection)->toReceive('query')->andReturn($this->statement);
+            allow($this->statement)->toReceive('fetchObject')->andReturn(...[...$rows, null]);
+            WithUnitEnumProperty::setConnection($this->connection);
+
+            $models = WithUnitEnumProperty::findAllBySql('query');
+            expect($models[0]->state)->toBe(State::on);
+            expect($models[0]->nullableState)->toBe(State::on);
+            expect($models[0]->stateDefaultNull)->toBe(State::on);
+            expect($models[0]->stateDefaultOff)->toBe(State::on);
+        });
+
+        it('fails when load object with invalid values', function() {
+            $rows = [
+                (object) ['id' => '2', 'state' => 'invalid'],
+            ];
+            allow($this->connection)->toReceive('query')->andReturn($this->statement);
+            allow($this->statement)->toReceive('fetchObject')->andReturn(...[...$rows, null]);
+            WithUnitEnumProperty::setConnection($this->connection);
+
+            expect(fn() => WithUnitEnumProperty::findAllBySql('query'))->toThrow(new ActiveRecordException);
+        });
+    });
+
+    describe('BackedEnum property', function() {
+        it('can load object with default values', function() {
+            $rows = [
+                (object) ['id' => '1'],
+            ];
+            allow($this->connection)->toReceive('query')->andReturn($this->statement);
+            allow($this->statement)->toReceive('fetchObject')->andReturn(...[...$rows, null]);
+            WithBackedEnumProperty::setConnection($this->connection);
+
+            $models = WithBackedEnumProperty::findAllBySql('query');
+            expect(Column::isPropertyInitialized($models[0], 'status'))->toBe(false);
+            expect(Column::isPropertyInitialized($models[0], 'nullableStatus'))->toBe(false);
+            expect($models[0]->statusDefaultNull)->toBe(null);
+            expect($models[0]->statusDefaultOk)->toBe(HttpStatusCode::ok);
+        });
+
+        it('can load object with correct values', function() {
+            $rows = [
+                (object) ['id' => '2', 'status' => '404', 'nullableStatus' => '404', 'statusDefaultNull' => '404', 'statusDefaultOk' => '404'],
+            ];
+            allow($this->connection)->toReceive('query')->andReturn($this->statement);
+            allow($this->statement)->toReceive('fetchObject')->andReturn(...[...$rows, null]);
+            WithBackedEnumProperty::setConnection($this->connection);
+
+            $models = WithBackedEnumProperty::findAllBySql('query');
+            expect($models[0]->status)->toBe(HttpStatusCode::notFound);
+            expect($models[0]->nullableStatus)->toBe(HttpStatusCode::notFound);
+            expect($models[0]->statusDefaultNull)->toBe(HttpStatusCode::notFound);
+            expect($models[0]->statusDefaultOk)->toBe(HttpStatusCode::notFound);
+        });
+
+        it('fails when load object with invalid values', function() {
+            $rows = [
+                (object) ['id' => '2', 'status' => '500'],
+            ];
+            allow($this->connection)->toReceive('query')->andReturn($this->statement);
+            allow($this->statement)->toReceive('fetchObject')->andReturn(...[...$rows, null]);
+            WithBackedEnumProperty::setConnection($this->connection);
+
+            expect(fn() => WithBackedEnumProperty::findAllBySql('query'))->toThrow(new ActiveRecordException);
+        });
+    });
+
+    describe('DateTime property', function() {
+        it('can load object with default values', function() {
+            $rows = [
+                (object) ['id' => '1'],
+            ];
+            allow($this->connection)->toReceive('query')->andReturn($this->statement);
+            allow($this->statement)->toReceive('fetchObject')->andReturn(...[...$rows, null]);
+            WithDateTimeProperty::setConnection($this->connection);
+
+            $models = WithDateTimeProperty::findAllBySql('query');
+            expect(Column::isPropertyInitialized($models[0], 'date'))->toBe(false);
+            expect(Column::isPropertyInitialized($models[0], 'nullableDate'))->toBe(false);
+            expect($models[0]->dateDefaultNull)->toBe(null);
+        });
+
+        it('can load object with correct values', function() {
+            $rows = [
+                (object) ['id' => '2', 'date' => '2000-01-01', 'nullableDate' => '2000-02-02', 'dateDefaultNull' => '2000-03-03'],
+            ];
+            allow($this->connection)->toReceive('query')->andReturn($this->statement);
+            allow($this->statement)->toReceive('fetchObject')->andReturn(...[...$rows, null]);
+            WithDateTimeProperty::setConnection($this->connection);
+
+            $models = WithDateTimeProperty::findAllBySql('query');
+            expect($models[0]->date->format('Y-m-d'))->toBe('2000-01-01');
+            expect($models[0]->nullableDate->format('Y-m-d'))->toBe('2000-02-02');
+            expect($models[0]->dateDefaultNull->format('Y-m-d'))->toBe('2000-03-03');
+        });
+
+        it('fails when load object with invalid values', function() {
+            $rows = [
+                (object) ['id' => '2', 'date' => 'invalid'],
+            ];
+            allow($this->connection)->toReceive('query')->andReturn($this->statement);
+            allow($this->statement)->toReceive('fetchObject')->andReturn(...[...$rows, null]);
+            WithDateTimeProperty::setConnection($this->connection);
+
+            expect(fn() => WithDateTimeProperty::findAllBySql('query'))->toThrow(new ActiveRecordException);
         });
     });
 });
