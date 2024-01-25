@@ -217,6 +217,19 @@ describe(Base::class, function () {
         });
     });
 
+    describe('::deleteAll()', function () {
+        it('it executes DELETE command without condition', function () {
+            allow($this->connection)->toReceive('exec')->andReturn(1);
+            expect($this->connection)->toReceive('exec')->with("DELETE FROM `table`");
+            $this->modelClass::deleteAll();
+        });
+        it('allows to set criteria', function () {
+            allow($this->connection)->toReceive('exec')->andReturn(1);
+            expect($this->connection)->toReceive('exec')->with("DELETE FROM `table` WHERE criteria");
+            $this->modelClass::deleteAll('criteria');
+        });
+    });
+
     describe('::setConnection', function () {
         it('allows to set connections', function () {
             $connection = Double::instance(['class' => Connection::class]);
@@ -311,7 +324,7 @@ describe(Base::class, function () {
     });
 
     describe('::condition', function () {
-        fit('it builds correct condition for various types', function () {
+        it('it builds correct condition for various types', function () {
             $class = new ReflectionClass($this->modelClass);
             $method = $class->getMethod('condition');
             $tests = [
@@ -372,15 +385,6 @@ describe(Base::class, function () {
             WithUnitEnumProperty::setConnection($this->connection);
 
             expect(fn() => WithUnitEnumProperty::findAllBySql('query'))->toThrow(new ActiveRecordException);
-        });
-
-        it('build the correct condition', function() {
-            WithUnitEnumProperty::setConnection($this->connection);
-
-            $model = new WithUnitEnumProperty();
-
-            $model->state = State::off;
-
         });
     });
 
