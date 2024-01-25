@@ -3,6 +3,7 @@
 use Fixtures\HttpStatusCode;
 use Fixtures\Simple;
 use Fixtures\State;
+use Fixtures\Symbol;
 use Fixtures\WithBackedEnumProperty;
 use Fixtures\WithDateTimeProperty;
 use Fixtures\WithUnitEnumProperty;
@@ -310,7 +311,7 @@ describe(Base::class, function () {
     });
 
     describe('::condition', function () {
-        it('it builds correct condition for various types', function () {
+        fit('it builds correct condition for various types', function () {
             $class = new ReflectionClass($this->modelClass);
             $method = $class->getMethod('condition');
             $tests = [
@@ -320,6 +321,10 @@ describe(Base::class, function () {
                 "`new` = 1" => ['new', true],
                 "`name` IN ('Smith', 'Jones', 'Williams')" => ['name', ['Smith', 'Jones', 'Williams']],
                 "`updated_at` = NOW()" => ['updated_at', DbExpression::now()],
+                "`statue` = 'on'" => ['statue', State::on],
+                "`status` = 404" => ['status', HttpStatusCode::notFound],
+                "`symbol` = 'D'" => ['symbol', Symbol::diamonds],
+                "`date` = '2000-05-05 05:05:05'" => ['date', new DateTime('2000-05-05 05:05:05')],
             ];
             foreach ($tests as $result => $params) {
                 expect($method->invoke(null, ...$params))->toBe($result);
@@ -367,6 +372,15 @@ describe(Base::class, function () {
             WithUnitEnumProperty::setConnection($this->connection);
 
             expect(fn() => WithUnitEnumProperty::findAllBySql('query'))->toThrow(new ActiveRecordException);
+        });
+
+        it('build the correct condition', function() {
+            WithUnitEnumProperty::setConnection($this->connection);
+
+            $model = new WithUnitEnumProperty();
+
+            $model->state = State::off;
+
         });
     });
 

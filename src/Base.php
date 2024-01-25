@@ -2,13 +2,12 @@
 
 namespace Gforces\ActiveRecord;
 
+use BackedEnum;
 use DateTime;
 use Gforces\ActiveRecord\Connection\Providers\Provider;
-use IntBackedEnum;
 use JetBrains\PhpStorm\ArrayShape;
 use JetBrains\PhpStorm\Deprecated;
 use ReflectionException;
-use StringBackedEnum;
 use Throwable;
 use UnitEnum;
 
@@ -95,7 +94,7 @@ class Base
                 foreach ($row as $key => $value) {
                     $property = $class->getProperty($key);
                     $type = $property->getType()->getName();
-                    if (is_a($type, \BackedEnum::class, true)) {
+                    if (is_a($type, BackedEnum::class, true)) {
                         $property->setValue($object, $type::from($value));
                         continue;
                     }
@@ -305,11 +304,12 @@ class Base
         if ($value instanceof DbExpression) {
             return (string) $value;
         }
-        if ($value instanceof IntBackedEnum) {
-            return $value->value;
-        }
-        if ($value instanceof StringBackedEnum) {
-            return static::getConnection()->quote($value->value);
+        if ($value instanceof BackedEnum) {
+            $type = (new \ReflectionEnum($value))->getBackingType()->getName();
+            return match ($type) {
+                'int' => $value->value,
+                'string' => static::getConnection()->quote($value->value),
+            };
         }
         if ($value instanceof UnitEnum) {
             return static::getConnection()->quote($value->name);
