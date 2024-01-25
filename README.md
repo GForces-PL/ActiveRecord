@@ -44,8 +44,26 @@ The followimg basic types are supported: _string_, _int_, _bool_, _double_.
 _\DateTime_ properties are stored in the database as formatted string 'Y-m-d H:i:s' and converted back to _\DateTime_ when retrieved.
 It is not necessary for the column in the database to be also of type DATE or DATETIME, but when converting an invalid value to a DateTime object it may throw an error.
 
-#### Enums
-If property is an enum it is stored in the database as a string of case name. A column in the database may or may not be of the enum type. When it is retrieved from the database it is converted to Enum case or will throw an error when has invalid value.  
+#### Unit Enums
+If property is an enum it is stored in the database as a string of case name. A column in the database may or may not be of the enum type. When it is retrieved from the database it is converted to Enum case or will throw an error when has invalid value.
+```PHP
+enum Status
+{
+    case online;
+    case offline;
+}
+
+class User extends Base
+{
+    #[Column] 
+    public int $id;
+    #[Column] 
+    public Status $status;
+}
+```
+
+#### Backed Enums
+If property is an enum it is stored in the database as a value of enum case. A column in the database may or may not be of the enum type. When it is retrieved from the database it is converted to Enum value or will throw an error when has invalid value.
 
 ### Relations
 
