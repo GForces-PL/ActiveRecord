@@ -21,7 +21,7 @@ function setBaseProperty(string $class, string $property, mixed $value): void
 {
     $class = new ReflectionClass($class);
     $property = $class->getProperty($property);
-    $property->setValue($value);
+    $property->setValue(null, $value);
 }
 
 describe(Base::class, function () {
