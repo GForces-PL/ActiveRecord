@@ -92,7 +92,11 @@ class Base
                 $object = $class->newInstanceWithoutConstructor();
                 $object->isNew = false;
                 foreach ($row as $key => $value) {
-                    $property = $class->getProperty($key);
+                    try {
+                        $property = $class->getProperty($key);
+                    } catch (ReflectionException) {
+                        continue;
+                    }
                     $type = $property->getType()->getName();
                     if (is_a($type, BackedEnum::class, true)) {
                         $property->setValue($object, $type::from($value));
