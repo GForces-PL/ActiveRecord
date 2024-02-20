@@ -103,11 +103,11 @@ class Base
                         continue;
                     }
                     if (is_a($type, UnitEnum::class, true)) {
-                        $property->setValue($object, (new \ReflectionEnum($type))->getCase($value)->getValue());
+                        $property->setValue($object, $value ? $type::{$value} : null);
                         continue;
                     }
                     if (is_a($type, DateTime::class, true)) {
-                        $property->setValue($object, new DateTime($value));
+                        $property->setValue($object, $value ? new DateTime($value) : null);
                         continue;
                     }
                     $property->setValue($object, $value);
