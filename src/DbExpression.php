@@ -2,21 +2,10 @@
 
 namespace Gforces\ActiveRecord;
 
-use JetBrains\PhpStorm\Pure;
+use Gforces\ActiveRecord\Expressions\Simple;
+use JetBrains\PhpStorm\Deprecated;
 
-class DbExpression
+#[Deprecated('Class is renamed', Expression::class)]
+class DbExpression extends Simple
 {
-    public function __construct(private readonly string $expression)
-    {
-    }
-
-    public function __toString(): string
-    {
-        return $this->expression;
-    }
-
-    #[Pure] public static function now(): self
-    {
-        return new self('NOW()');
-    }
 }

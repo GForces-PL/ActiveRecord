@@ -12,11 +12,13 @@ abstract class PropertyAttribute
     public ReflectionProperty $property;
 
     /**
-     * @throws ReflectionException
+     * @param Base $object
+     * @return array
      */
     public static function getValues(Base $object): array
     {
         $values = [];
+        /* @noinspection PhpUnhandledExceptionInspection Object is instance of Base and exists */
         foreach (static::getProperties($object::class) as $name => $property) {
             if ($property->isInitialized($object)) {
                 $values[$name] = $property->getValue($object);
@@ -26,8 +28,8 @@ abstract class PropertyAttribute
     }
 
     /**
-     * @throws ReflectionException
      * @return static[]
+     * @throws ReflectionException
      */
     public static function getAll(string $class): array
     {
@@ -43,12 +45,15 @@ abstract class PropertyAttribute
     }
 
     /**
-     * @throws ReflectionException
      * @throws ActiveRecordException
      */
     public static function get(string $class, string $property): static
     {
-        $property = new ReflectionProperty($class, $property);
+        try {
+            $property = new ReflectionProperty($class, $property);
+        } catch (ReflectionException $e) {
+            throw new ActiveRecordException($e->getMessage(), $e->getCode(), $e);
+        }
         $attribute = static::getPropertyAttributes($property)[0]
             ?? throw new ActiveRecordException("$class::$property has no " . static::class . " attribute");
         $instance = $attribute->newInstance();
@@ -57,8 +62,8 @@ abstract class PropertyAttribute
     }
 
     /**
-     * @throws ReflectionException
      * @return array<string, ReflectionProperty>
+     * @throws ReflectionException
      */
     public static function getProperties(string $class): array
     {

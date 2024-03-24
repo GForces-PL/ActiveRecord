@@ -7,9 +7,8 @@ A new implementation of the Active Record pattern using Attributes available sin
 - no magic properties
 - real types for properties instead of string
 - no setters and getters needed
-- objects created directly by PDO
 - lazy loaded relations
-- really fast
+- fast
 
 ## Usage
 
@@ -37,8 +36,8 @@ $vehicle->model = 'X1';
 $vehicle->save();
 ```
 
-#### Basic property types
-The followimg basic types are supported: _string_, _int_, _bool_, _double_.
+#### Built-in property types
+All scalar built-in types are supported.
 
 #### DateTime
 _\DateTime_ properties are stored in the database as formatted string 'Y-m-d H:i:s' and converted back to _\DateTime_ when retrieved.
@@ -150,14 +149,67 @@ Vehicle::find($id);
 Vehicle::findAll($criteria, $orderBy, $limit, $offset, $select);
 Vehicle::findFirst($criteria, $orderBy);
 Vehicle::findFirstByAttribute($attribute, $value);
-Vehicle::findFirstByAttributes($attributes);
 Vehicle::findAllBySql($query);
 ```
 ### Criteria
 Criteria can be a string with SQL expression or just an assoc array of properties and theirs values. 
 ```PHP
-Vehicle::findAll(['name' => 'Phil', 'male' => Sex::male, 'diabled' => false]);
-Vehicle::findAll("`name` = 'Phil' AND `sex` = 'male' AND `disabled` = 0");
+User::findAll(['name' => 'Phil', 'male' => Sex::male, 'diabled' => false]);
+User::findAll("`name` = 'Phil' AND `sex` = 'male' AND `disabled` = 0");
+```
+When using assoc array, as default it builds quoted SQL expressions with AND operator. For array values operator IN is used and IS for nulls.
+```PHP
+User::findAll(['name' => 'Phil', 'male' => [Sex::male, Sex::female], 'diabled' => null]);
+User::findAll("`name` = 'Phil' AND `sex` IN ('male', 'female') AND `disabled` IS NULL");
+```
+
+#### Property expressions
+To obtain other comparisons, you can use the AtrributeExpression like below:
+```PHP
+use \Gforces\ActiveRecord\PropertyExpression;
+User::findAll([
+    'name' => PropertyExpression::eq('Phil'), // `name` = 'Phil'  
+    'male' => PropertyExpression::ne([Sex::male, Sex::female]), // NOT IN 
+    'diabled' => PropertyExpression::ne(null), // IS NOT NULL
+    'age' => PropertyExpression::gt(21), // `age` > 21
+    'weight' => PropertyExpression::le(50), // `weight` <= 50
+    'verified' => PropertyExpression::ge(new DateTime('-2 week')),
+]);
+```
+You can also use shorter syntax
+```PHP
+use function \Gforces\ActiveRecord\PropertyExpressions\eq;
+use function \Gforces\ActiveRecord\PropertyExpressions\ne;
+use function \Gforces\ActiveRecord\PropertyExpressions\gt;
+use function \Gforces\ActiveRecord\PropertyExpressions\le;
+use function \Gforces\ActiveRecord\PropertyExpressions\ge;
+
+User::findAll([
+    'name' => eq('Phil'), // `name` = 'Phil'  
+    'male' => ne([Sex::male, Sex::female]), // NOT IN 
+    'diabled' => ne(null), // IS NOT NULL
+    'age' => ge(21), // `age` >= 21
+    'weight' => le(50), // `weight` <= 50
+    'verified' => gt(new DateTime('-2 week')),
+]);
+```
+
+#### SQL Expressions
+You can combine assoc values with custom SQL expressions:
+```PHP
+use Gforces\ActiveRecord\Expression;
+use Gforces\ActiveRecord\Expressions\Simple;
+use function \Gforces\ActiveRecord\PropertyExpressions\gt;
+use function \Gforces\ActiveRecord\PropertyExpressions\le;
+
+User::findAll([
+    'name' => 'Phil', 
+    Expression::or([
+        'age' => gt(21),
+        'weight' => le(50),
+    ]),
+    '1 = 1',
+]);
 ```
 
 ### isNew property
@@ -173,6 +225,9 @@ class Vehicle extends Base
 {
     protected static bool $keepAttributeChanges = true;
     
+    #[Column]
+    public string $make;
+    
     public function isMakeChanged(): bool
     {
         return $this->isAttributeChanged('make');
@@ -181,11 +236,27 @@ class Vehicle extends Base
 
 $vehicle = Vehicle::find($id);
 $vehicle->save(); // UPDATE query is not executed
+$vehicle->isMakeChanged(); // false
+$vehicle->make = 'VW';
+$vehicle->isMakeChanged(); // true
+$vehicle->save() // UPDATE query executed
+```
+
+### Static methods
+You can use assoc array syntax, the same as for Criteria, in multiple static methods for your models
+```PHP
+use function \Gforces\ActiveRecord\PropertyExpressions\ge;
+
+Product::insert(['name' => 'Bill', 'age' => 21]);
+Product::updateAll(['adult' => true], criteria: ['age' => ge(18)]);
+Product::deleteAll(['age' => ge(18)]);
+Product::count(['age' => 21]);
+Product::exists(['name' => 'Bill', 'adult' => true]);
 ```
 
 ## Known limitations
 
-- primary keys no fully implemented. With some relations wtill 'id' column is needed
+- primary keys no fully implemented. With some relations still 'id' column is needed
 - not all relations fully implemented
 - only few sample validators implemented
 - no documentation, but code is self-documenting

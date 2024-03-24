@@ -15,11 +15,15 @@ class Column extends PropertyAttribute
     }
 
     /**
-     * @throws ReflectionException
+     * @throws ActiveRecordException
      */
     public static function isPropertyInitialized(Base $object, string $propertyName): bool
     {
-        return (new ReflectionProperty($object, $propertyName))->isInitialized($object);
+        try {
+            return (new ReflectionProperty($object, $propertyName))->isInitialized($object);
+        } catch (ReflectionException $e) {
+            throw new ActiveRecordException($e->getMessage(), $e->getCode(), $e);
+        }
     }
 
     /**
@@ -37,7 +41,7 @@ class Column extends PropertyAttribute
             if ($column->autoIncrement === null) {
                 return $column->property;
             }
-        } catch (ActiveRecordException|ReflectionException) {
+        } catch (ActiveRecordException) {
         }
         return null;
     }

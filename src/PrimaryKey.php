@@ -3,17 +3,16 @@
 namespace Gforces\ActiveRecord;
 
 use Attribute;
-use ReflectionException;
 
 #[Attribute(Attribute::TARGET_PROPERTY)]
 class PrimaryKey extends PropertyAttribute
 {
     /**
-     * @throws ReflectionException
      * @throws ActiveRecordException
      */
     public static function getValues(Base $object): array
     {
+        /* @noinspection PhpUnhandledExceptionInspection Object is instance of Base and exists */
         $values = parent::getValues($object);
         if ($values) {
             return $values;
@@ -21,7 +20,7 @@ class PrimaryKey extends PropertyAttribute
         try {
             $idColumn = Column::get($object::class, 'id');
             return ['id' => $idColumn->property->getValue($object)];
-        } catch (ActiveRecordException|ReflectionException $e) {
+        } catch (ActiveRecordException) {
             throw new ActiveRecordException('No primary key found for ' . $object::class);
         }
     }

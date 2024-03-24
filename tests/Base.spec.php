@@ -11,17 +11,21 @@ use Gforces\ActiveRecord\ActiveRecordException;
 use Gforces\ActiveRecord\Base;
 use Gforces\ActiveRecord\Column;
 use Gforces\ActiveRecord\Connection;
-use Gforces\ActiveRecord\DbExpression;
+use Gforces\ActiveRecord\Expression;
 use Kahlan\Plugin\Double;
 
 /**
- * @throws ReflectionException
+ * @throws ActiveRecordException
  */
 function setBaseProperty(string $class, string $property, mixed $value): void
 {
-    $class = new ReflectionClass($class);
-    $property = $class->getProperty($property);
-    $property->setValue(null, $value);
+    try {
+        $class = new ReflectionClass($class);
+        $property = $class->getProperty($property);
+        $property->setValue(null, $value);
+    } catch (ReflectionException $e) {
+        throw new ActiveRecordException($e->getMessage(), $e->getCode(), $e);
+    }
 }
 
 describe(Base::class, function () {
@@ -110,11 +114,10 @@ describe(Base::class, function () {
     });
 
     describe('::findFirstByAttributes()', function () {
-        it('it uses multiple condition builders and ::findFirst() method', function () {
-            allow($this->modelClass)->toReceive('::condition')->with('name', 'value1')->andReturn('criteria1');
-            allow($this->modelClass)->toReceive('::condition')->with('key', 'value2')->andReturn('criteria2');
-            allow($this->modelClass)->toReceive('::findFirst')->with('criteria1 AND criteria2', 'order')->andReturn($this->model);
-            expect($this->modelClass::findFirstByAttributes(['name' => 'value1', 'key' => 'value2'], 'order'))->toBe($this->model);
+        it('it uses ::findFirst() method', function () {
+            allow($this->modelClass)->toReceive('::findFirst');
+            expect($this->modelClass)->toReceive('::findFirst')->with(['name' => 'value1', 'key' => 'value2'], 'order')->once();
+            $this->modelClass::findFirstByAttributes(['name' => 'value1', 'key' => 'value2'], 'order');
         });
     });
 
@@ -187,10 +190,10 @@ describe(Base::class, function () {
             expect($this->connection)->toReceive('exec')->with("INSERT INTO `table` (`name`,`age`,`role`) VALUES ('Smith',20,NULL) ON DUPLICATE KEY UPDATE `name` = 'Jones'");
             $this->modelClass::insert(['name' => 'Smith', 'age' => 20, 'role' => null], onDuplicateKeyUpdate: "`name` = 'Jones'");
         });
-        it('allows to use DbExpression in attributes', function () {
+        it('allows to use Expression in attributes', function () {
             allow($this->connection)->toReceive('exec')->andReturn(1);
             expect($this->connection)->toReceive('exec')->with("INSERT INTO `table` (`updated_at`) VALUES (NOW())");
-            $this->modelClass::insert(['updated_at' => DbExpression::now()]);
+            $this->modelClass::insert(['updated_at' => Expression::now()]);
         });
     });
 
@@ -205,10 +208,10 @@ describe(Base::class, function () {
             expect($this->connection)->toReceive('exec')->with("UPDATE `table` SET `name` = 'Smith', `age` = 20, `role` = NULL");
             $this->modelClass::updateAll(['name' => 'Smith', 'age' => 20, 'role' => null]);
         });
-        it('allows to use DbExpression in attributes', function () {
+        it('allows to use Expression in attributes', function () {
             allow($this->connection)->toReceive('exec')->andReturn(1);
             expect($this->connection)->toReceive('exec')->with("UPDATE `table` SET `updated_at` = NOW()");
-            $this->modelClass::updateAll(['updated_at' => DbExpression::now()]);
+            $this->modelClass::updateAll(['updated_at' => Expression::now()]);
         });
         it('allows to set criteria', function () {
             allow($this->connection)->toReceive('exec')->andReturn(1);
@@ -333,7 +336,7 @@ describe(Base::class, function () {
                 "`role` IS NULL" => ['role', null],
                 "`new` = 1" => ['new', true],
                 "`name` IN ('Smith', 'Jones', 'Williams')" => ['name', ['Smith', 'Jones', 'Williams']],
-                "`updated_at` = NOW()" => ['updated_at', DbExpression::now()],
+                "`updated_at` = NOW()" => ['updated_at', Expression::now()],
                 "`statue` = 'on'" => ['statue', State::on],
                 "`status` = 404" => ['status', HttpStatusCode::notFound],
                 "`symbol` = 'D'" => ['symbol', Symbol::diamonds],
