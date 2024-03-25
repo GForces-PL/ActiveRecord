@@ -14,6 +14,7 @@ abstract class PropertyAttribute
     /**
      * @param Base $object
      * @return array
+     * @noinspection PhpDocMissingThrowsInspection
      */
     public static function getValues(Base $object): array
     {

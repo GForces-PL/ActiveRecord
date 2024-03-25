@@ -7,7 +7,6 @@ use DateTime;
 use Gforces\ActiveRecord\ActiveRecordException;
 use Gforces\ActiveRecord\Expression;
 use ReflectionEnum;
-use ReflectionException;
 use UnitEnum;
 
 class Value extends Expression
@@ -37,6 +36,10 @@ class Value extends Expression
         };
     }
 
+    /**
+     * @throws ActiveRecordException
+     * @noinspection PhpDocMissingThrowsInspection
+     */
     private function quoteObjectValue(object $value): string
     {
         if ($value instanceof Expression) {

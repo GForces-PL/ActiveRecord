@@ -5,7 +5,6 @@ namespace Gforces\ActiveRecord\PropertyExpressions;
 use Gforces\ActiveRecord\PropertyExpression;
 use Gforces\ActiveRecord\Expression;
 use Gforces\ActiveRecord\Expressions\Identifier;
-use Override;
 
 class NotIn extends PropertyExpression
 {
@@ -13,7 +12,6 @@ class NotIn extends PropertyExpression
     {
     }
 
-    #[Override]
     public function getExpression(Identifier $attribute): Expression
     {
         return new \Gforces\ActiveRecord\Expressions\NotIn(

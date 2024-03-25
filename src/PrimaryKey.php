@@ -12,7 +12,6 @@ class PrimaryKey extends PropertyAttribute
      */
     public static function getValues(Base $object): array
     {
-        /* @noinspection PhpUnhandledExceptionInspection Object is instance of Base and exists */
         $values = parent::getValues($object);
         if ($values) {
             return $values;
