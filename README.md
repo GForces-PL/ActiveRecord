@@ -124,7 +124,7 @@ class Vehicle extends Base
 ### Setting up connection
 
 ActiveRecord uses PDO connection. There are two ways to configure connection with your database:
-1. Setting connection directly
+#### Setting connection directly
 ```PHP
 use Gforces\ActiveRecord\Base;
 use Gforces\ActiveRecord\Connection;
@@ -135,7 +135,7 @@ It will set up the same connection for all models. You can still set different c
 use Gforces\ActiveRecord\Connection);
 Vehicle::setConnection(new Connection($dsn, $username, $password));
 ```
-2. Using ConnectionProvider
+#### Using ConnectionProvider
 
 If you want the connection to be created only when it is needed, it is better to use a ConnectionProvider. You can write your own provider or use the default one:
 ```PHP
