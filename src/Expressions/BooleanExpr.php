@@ -19,7 +19,7 @@ class BooleanExpr extends Expression
     public function __toString(): string
     {
         $operator = strtoupper($this->operator->name);
-        $this->setConection(...$this->expressions);
+        $this->setConnection(...$this->expressions);
         $expressionString = implode(" $operator ", $this->expressions);
         return in_array($this->operator, [BooleanOperator::or, BooleanOperator::xor]) ? "($expressionString)" : $expressionString;
     }

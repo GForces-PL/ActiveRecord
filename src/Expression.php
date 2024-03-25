@@ -52,7 +52,7 @@ abstract class Expression implements Stringable
         );
     }
 
-    protected function setConection(Expression ...$expressions): void
+    protected function setConnection(Expression ...$expressions): void
     {
         foreach ($expressions as $expression) {
             $expression->connection = $this->connection;

@@ -22,7 +22,7 @@ class Compare extends Expression
 
     public function __toString(): string
     {
-        $this->setConection($this->expression1, $this->expression2);
+        $this->setConnection($this->expression1, $this->expression2);
         return "$this->expression1 $this->operator $this->expression2";
     }
 }

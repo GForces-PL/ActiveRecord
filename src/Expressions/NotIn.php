@@ -18,7 +18,7 @@ class NotIn extends Expression
 
     public function __toString(): string
     {
-        $this->setConection($this->expression, ...$this->values);
+        $this->setConnection($this->expression, ...$this->values);
         return "$this->expression NOT IN (" . implode(', ', $this->values) . ")";
     }
 }

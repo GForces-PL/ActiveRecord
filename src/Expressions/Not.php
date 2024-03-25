@@ -15,7 +15,7 @@ class Not extends Expression
 
     public function __toString(): string
     {
-        $this->setConection($this->expression);
+        $this->setConnection($this->expression);
         return "NOT $this->expression";
     }
 }
