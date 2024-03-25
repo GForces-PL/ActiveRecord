@@ -4,6 +4,7 @@
 namespace Gforces\ActiveRecord\Associations;
 
 use Attribute;
+use Gforces\ActiveRecord\ActiveRecordException;
 use Gforces\ActiveRecord\Association;
 use Gforces\ActiveRecord\Base;
 
@@ -14,6 +15,9 @@ class HasMany extends Association
     {
     }
 
+    /**
+     * @throws ActiveRecordException
+     */
     public function load(Base $object): array
     {
         if ($object->isNew) {

@@ -4,6 +4,7 @@
 namespace Gforces\ActiveRecord\Associations;
 
 use Attribute;
+use Gforces\ActiveRecord\ActiveRecordException;
 use Gforces\ActiveRecord\Association;
 use Gforces\ActiveRecord\Base;
 
@@ -12,39 +13,51 @@ class HasOne extends Association
 {
     /**
      * @param string $foreignKey Custom foreign key.
-     * @param bool $createOnEmpty Determines if new instance of related object should be automatically created instead of returning null when not found in the database
      */
-    public function __construct(private readonly string $foreignKey = '', private readonly bool $createOnEmpty = false)
+    public function __construct(private readonly string $foreignKey = '')
     {
     }
 
+    /**
+     * @throws ActiveRecordException
+     */
     public function load(Base $object): ?Base
     {
         /** @var class-string<Base> $class */
-        $class = $this->property->getType()->getName();
+        $class = $this->getRelatedType();
         if ($object->isNew) {
-            return $this->createOnEmpty ? new $class : null;
+            return $this->getDefaultValue();
         }
         $objectTable = $object::class::getTableName();
         $foreignKey = $this->foreignKey ?: $objectTable . '_id';
-        return $class::findFirstByAttribute($foreignKey, $object->id) ?: ($this->createOnEmpty ? new $class : null);
+        return $class::findFirstByAttribute($foreignKey, $object->id) ?: $this->getDefaultValue();
     }
 
+    /**
+     * @throws ActiveRecordException
+     */
     public function save(Base $object): void
     {
         if (!$this->property->isInitialized($object)) {
             return;
         }
-        $propertyName = $this->property->getName();
-        $relatedObject = $object->$propertyName;
-        $objectTable = $object::class::getTableName();
+        $relatedObject = $this->property->getValue($object);
+        $objectTable = $object::getTableName();
         $foreignKey = $this->foreignKey ?: $objectTable . '_id';
         if (!$relatedObject) {
-            $relatedTable = $this->property->getType()->getName()::getTableName();
-            $object::getConnection()->exec("DELETE FROM `$relatedTable` WHERE `$foreignKey` = " . $object->id);
+            /** @var class-string<Base> $class */
+            $class = $this->getRelatedType();
+            $class::deleteAll([$foreignKey => $object->id]);
             return;
         }
         $relatedObject->$foreignKey = $object->id;
         $relatedObject->save();
+    }
+
+    private function getDefaultValue(): ?Base
+    {
+        /** @var class-string<Base> $class */
+        $class = $this->getRelatedType();
+        return $this->property->getType()->allowsNull() ? null : new $class;
     }
 }

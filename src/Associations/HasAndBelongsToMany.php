@@ -4,8 +4,10 @@
 namespace Gforces\ActiveRecord\Associations;
 
 use Attribute;
+use Gforces\ActiveRecord\ActiveRecordException;
 use Gforces\ActiveRecord\Association;
 use Gforces\ActiveRecord\Base;
+use Gforces\ActiveRecord\ValidationException;
 use PDO;
 
 #[Attribute(Attribute::TARGET_PROPERTY)]
@@ -15,6 +17,9 @@ class HasAndBelongsToMany extends Association
     {
     }
 
+    /**
+     * @throws ActiveRecordException
+     */
     public function load(Base $object): array
     {
         if ($object->isNew) {
@@ -36,6 +41,10 @@ class HasAndBelongsToMany extends Association
         return $relatedClass::findAllBySql($query);
     }
 
+    /**
+     * @throws ActiveRecordException
+     * @throws ValidationException
+     */
     public function save(Base $object): void
     {
         if (!$this->property->isInitialized($object)) {

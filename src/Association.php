@@ -21,4 +21,12 @@ abstract class Association extends PropertyAttribute
         $attribute = $property->getAttributes(ArrayShape::class)[0] ?? null;
         return $attribute ? $attribute->getArguments()[0][0] : '';
     }
+
+    /**
+     * @return class-string<Base>
+     */
+    protected function getRelatedType(): string
+    {
+        return $this->property->getType()->getName();
+    }
 }
