@@ -8,8 +8,10 @@ use Gforces\ActiveRecord\Connection\Providers\Provider;
 use Gforces\ActiveRecord\Expressions\Value;
 use JetBrains\PhpStorm\ArrayShape;
 use JetBrains\PhpStorm\Deprecated;
+use ReflectionAttribute;
 use ReflectionClass;
 use ReflectionException;
+use ReflectionProperty;
 use Throwable;
 use UnitEnum;
 
@@ -92,7 +94,6 @@ class Base
         try {
             while ($row = $statement->fetchObject()) {
                 $object = $class->newInstanceWithoutConstructor();
-                $object->isNew = false;
                 foreach ($row as $key => $value) {
                     try {
                         $property = $class->getProperty($key);
@@ -114,6 +115,7 @@ class Base
                     }
                     $property->setValue($object, $value);
                 }
+                $object->isNew = false;
                 $object->__construct();
                 $objects[] = $object;
             }
@@ -241,11 +243,8 @@ class Base
 
     public static function getTableName(): string
     {
-        $class = static::class;
-        if (str_starts_with($class, self::$modelsNamespacePrefix)) {
-            $class = substr($class, strlen(self::$modelsNamespacePrefix));
-        }
-        return strtolower(preg_replace('/(.)([A-Z])/', "$1_$2", str_replace('\\', '', $class)));
+        static $tableNames;
+        return $tableNames[static::class] ??= self::getDefaultTableName();
     }
 
     /**
@@ -347,17 +346,11 @@ class Base
         }
     }
 
-    /**
-     * @throws ActiveRecordException
-     */
     public function isValid(): bool
     {
         return count($this->getErrors(true)) == 0;
     }
 
-    /**
-     * @throws ActiveRecordException
-     */
     public function getErrors($validate = false): array
     {
         if ($validate) {
@@ -380,6 +373,7 @@ class Base
     /**
      * @throws ValidationException
      * @throws ActiveRecordException
+     * @noinspection PhpDocMissingThrowsInspection
      */
     public function save(bool $validate = true): void
     {
@@ -395,11 +389,11 @@ class Base
         }
         if ($this->isNew) {
             static::insert($changedValues);
-            /** @noinspection PhpUnhandledExceptionInspection Value is checked above*/
+            /** @noinspection PhpUnhandledExceptionInspection static::class used */
             Column::getAutoIncrementProperty(static::class)?->setValue($this, (int) static::getConnection()->lastInsertId());
             $this->isNew = false;
         } else {
-            $this->update($changedValues);
+            static::updateAll($changedValues, PrimaryKey::getValues($this));
         }
         if (static::$keepAttributeChanges) {
             $this->originalValues = $values;
@@ -424,7 +418,7 @@ class Base
     public function __get(string $name)
     {
         try {
-            return $this->$name = Association::get(static::class, $name)->load($this);
+            return $this->{$name} = Association::get(static::class, $name)->load($this);
         } catch (ActiveRecordException $e) {
             $class = static::class;
             $file = $e->getTrace()[2]['file'];
@@ -433,11 +427,9 @@ class Base
         }
     }
 
-    /**
-     * @throws ActiveRecordException
-     */
     protected function validate(): void
     {
+        /* @noinspection PhpUnhandledExceptionInspection Object is instance of Base and exists */
         foreach (Validator::getAll(static::class) as $validator) {
             try {
                 $validator->perform($this);
@@ -447,9 +439,6 @@ class Base
         }
     }
 
-    /**
-     * @throws ActiveRecordException
-     */
     protected function getValues(): array
     {
         return Column::getValues($this);
@@ -464,23 +453,21 @@ class Base
             throw new ActiveRecordException('Changes are not stored for this object');
         }
         if (array_key_exists($attribute, $this->originalValues)) {
-            return $this->originalValues[$attribute] !== $this->$attribute;
+            return $this->originalValues[$attribute] !== $this->{$attribute};
         }
         try {
-            return Column::isPropertyInitialized($this, $attribute);
-        } catch (ActiveRecordException $e) {
+            return (new ReflectionProperty($this, $attribute))->isInitialized($this);
+        } catch (ReflectionException $e) {
             throw new ActiveRecordException('Could nor check changes for invalid attribute', previous: $e);
         }
     }
 
-    /**
-     * @throws ActiveRecordException
-     */
-    private function update(array $attributes): void
+    private static function getDefaultTableName(): string
     {
-        if ($this->isNew) {
-            return;
+        $class = static::class;
+        if (str_starts_with($class, self::$modelsNamespacePrefix)) {
+            $class = substr($class, strlen(self::$modelsNamespacePrefix));
         }
-        static::updateAll($attributes, PrimaryKey::getValues($this));
+        return strtolower(preg_replace('/(.)([A-Z])/', "$1_$2", str_replace('\\', '', $class)));
     }
 }

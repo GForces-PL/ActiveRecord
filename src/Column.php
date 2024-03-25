@@ -15,18 +15,6 @@ class Column extends PropertyAttribute
     }
 
     /**
-     * @throws ActiveRecordException
-     */
-    public static function isPropertyInitialized(Base $object, string $propertyName): bool
-    {
-        try {
-            return (new ReflectionProperty($object, $propertyName))->isInitialized($object);
-        } catch (ReflectionException $e) {
-            throw new ActiveRecordException($e->getMessage(), $e->getCode(), $e);
-        }
-    }
-
-    /**
      * @throws ReflectionException
      */
     public static function getAutoIncrementProperty(string $class): ?ReflectionProperty
