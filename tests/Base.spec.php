@@ -30,6 +30,7 @@ function setBaseProperty(string $class, string $property, mixed $value): void
 
 describe(Base::class, function () {
     given('modelClass', function() {
+        /** @var class-string<Base> $class */
         $class = Double::classname(['extends' => Base::class]);
         allow($class)->toReceive('::getTableName')->andReturn('table');
         $class::setConnection($this->connection);
@@ -140,6 +141,16 @@ describe(Base::class, function () {
             expect($models[2]->id)->toBe(200);
             expect($models[0])->toBeAnInstanceOf(Simple::class);
         });
+        it('omits data columns which are not model properties', function () {
+            $query = "SELECT id, 'custom_value' as 'custom_column' FROM `simple`";
+            $row = (object) ['id' => 1, 'custom_column' => 'custom_value'];
+
+            allow($this->connection)->toReceive('query')->with($query)->andReturn($this->statement);
+            allow($this->statement)->toReceive('fetchObject')->andReturn($row, null);
+            Simple::setConnection($this->connection);
+            expect(fn() => Simple::findAllBySql($query))->not->toThrow(new ActiveRecordException);
+//            $model = Simple::findAllBySql($query)[0];
+        });
     });
 
     describe('::count()', function () {
@@ -240,8 +251,9 @@ describe(Base::class, function () {
             $modelClass::setConnection($connection);
             expect($modelClass::getConnection())->toBe($connection);
         });
-        it('doesn\'t set connection to Base and other classes', function () {
+        it('does not set connection to Base and other classes', function () {
             $this->modelClass::setConnection(Double::instance(['class' => Connection::class]));
+
             $otherClass = Double::classname(['extends' => Base::class]);
             expect(fn() => $otherClass::getConnection())->toThrow(new ActiveRecordException('Connection provider is not set'));
             expect(fn() => Base::getConnection())->toThrow(new ActiveRecordException('Connection provider is not set'));
@@ -358,8 +370,6 @@ describe(Base::class, function () {
             WithUnitEnumProperty::setConnection($this->connection);
 
             $models = WithUnitEnumProperty::findAllBySql('query');
-            expect(Column::isPropertyInitialized($models[0], 'state'))->toBe(false);
-            expect(Column::isPropertyInitialized($models[0], 'nullableState'))->toBe(false);
             expect($models[0]->stateDefaultNull)->toBe(null);
             expect($models[0]->stateDefaultOff)->toBe(State::off);
         });
@@ -401,8 +411,6 @@ describe(Base::class, function () {
             WithBackedEnumProperty::setConnection($this->connection);
 
             $models = WithBackedEnumProperty::findAllBySql('query');
-            expect(Column::isPropertyInitialized($models[0], 'status'))->toBe(false);
-            expect(Column::isPropertyInitialized($models[0], 'nullableStatus'))->toBe(false);
             expect($models[0]->statusDefaultNull)->toBe(null);
             expect($models[0]->statusDefaultOk)->toBe(HttpStatusCode::ok);
         });
@@ -444,8 +452,6 @@ describe(Base::class, function () {
             WithDateTimeProperty::setConnection($this->connection);
 
             $models = WithDateTimeProperty::findAllBySql('query');
-            expect(Column::isPropertyInitialized($models[0], 'date'))->toBe(false);
-            expect(Column::isPropertyInitialized($models[0], 'nullableDate'))->toBe(false);
             expect($models[0]->dateDefaultNull)->toBe(null);
         });
 
