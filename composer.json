@@ -14,7 +14,10 @@
   "autoload": {
     "psr-4": {
       "Gforces\\ActiveRecord\\": "src"
-    }
+    },
+    "files": [
+      "src/PropertyExpressions/functions.php"
+    ]
   },
   "autoload-dev": {
     "psr-4": {
