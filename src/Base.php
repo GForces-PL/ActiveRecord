@@ -8,7 +8,6 @@ use Gforces\ActiveRecord\Connection\Providers\Provider;
 use Gforces\ActiveRecord\Expressions\Value;
 use JetBrains\PhpStorm\ArrayShape;
 use JetBrains\PhpStorm\Deprecated;
-use ReflectionAttribute;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionProperty;
@@ -113,6 +112,10 @@ class Base
                         $property->setValue($object, $value ? new DateTime($value) : null);
                         continue;
                     }
+                    if (is_a($type, Property::class, true)) {
+                        $property->setValue($object, new $type($value));
+                        continue;
+                    }
                     $property->setValue($object, $value);
                 }
                 $object->isNew = false;
@@ -137,9 +140,9 @@ class Base
     /**
      * @throws ActiveRecordException
      */
-    public static function count(string|array $criteria = ''): int
+    public static function count(string|array $criteria = '', string $select = '*'): int
     {
-        $query = static::buildQuery($criteria, select: 'COUNT(*)');
+        $query = static::buildQuery($criteria, select: "COUNT($select)");
         return (int) static::getConnection()->query($query)->fetchColumn();
     }
 
@@ -261,7 +264,7 @@ class Base
     protected static function condition(string $attribute, mixed $value): string
     {
         $expression = Expression::buildForAttribute($attribute, $value);
-        $expression->connection = self::getConnection();
+        $expression->connection = static::getConnection();
         return (string) $expression;
     }
 
@@ -289,7 +292,7 @@ class Base
     protected static function quoteValue(mixed $value): string
     {
         $value = new Value($value);
-        $value->connection = self::getConnection();
+        $value->connection = static::getConnection();
         return (string) $value;
     }
 
@@ -321,7 +324,7 @@ class Base
     private static function queryWherePart(string|array|Expression $criteria): string
     {
         if ($criteria instanceof Expression) {
-            $criteria->connection = self::getConnection();
+            $criteria->connection = static::getConnection();
         }
         $part = is_array($criteria) ? static::conditions((array) $criteria) : (string) $criteria;
         return self::queryPart('WHERE', $part);
@@ -423,7 +426,7 @@ class Base
             $class = static::class;
             $file = $e->getTrace()[2]['file'];
             $line = $e->getTrace()[2]['line'];
-            trigger_error("Undefined property: $class::$$name in $file on line $line and caught", E_USER_WARNING);
+            trigger_error("Undefined property: $class::$$name in $file on line $line", E_USER_WARNING);
         }
     }
 
@@ -460,6 +463,11 @@ class Base
         } catch (ReflectionException $e) {
             throw new ActiveRecordException('Could nor check changes for invalid attribute', previous: $e);
         }
+    }
+
+    protected function getOriginalValues(): array
+    {
+        return $this->originalValues;
     }
 
     private static function getDefaultTableName(): string

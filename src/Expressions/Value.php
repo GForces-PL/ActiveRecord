@@ -6,6 +6,7 @@ use BackedEnum;
 use DateTime;
 use Gforces\ActiveRecord\ActiveRecordException;
 use Gforces\ActiveRecord\Expression;
+use Gforces\ActiveRecord\Property;
 use ReflectionEnum;
 use UnitEnum;
 
@@ -17,7 +18,7 @@ class Value extends Expression
 
     public function isNull(): bool
     {
-        return is_null($this->value instanceof Value ? $this->value->isNull() : $this->value);
+        return $this->value instanceof Value ? $this->value->isNull() : is_null($this->value);
     }
 
     /**
@@ -58,6 +59,9 @@ class Value extends Expression
         }
         if ($value instanceof DateTime) {
             return $this->connection->quote($value->format('Y-m-d H:i:s'));
+        }
+        if ($value instanceof Property) {
+            return $this->connection->quote((string) $value);
         }
         throw new ActiveRecordException('Invalid value type: ' . get_class($value));
     }
