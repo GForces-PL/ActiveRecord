@@ -15,7 +15,7 @@ class Length extends Validator
     public function __construct(
         private readonly ?int $min = null,
         private readonly ?int $max = null,
-        protected string|\Callable $message = '',
+        protected string $message = '',
         protected ValidationContext $context = ValidationContext::always,
     )
     {

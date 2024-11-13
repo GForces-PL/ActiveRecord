@@ -13,7 +13,7 @@ use JetBrains\PhpStorm\Pure;
 class Required extends Validator
 {
     public function __construct(
-        protected string|\Callable $message = '',
+        protected string $message = '',
         protected ValidationContext $context = ValidationContext::always,
     )
     {

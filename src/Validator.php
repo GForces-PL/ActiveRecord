@@ -7,7 +7,7 @@ use JetBrains\PhpStorm\Pure;
 
 abstract class Validator extends PropertyAttribute
 {
-    protected string|\Callable $message;
+    protected string $message;
     protected ValidationContext $context = ValidationContext::always;
 
     abstract protected function test(Base $object): bool;
@@ -43,6 +43,6 @@ abstract class Validator extends PropertyAttribute
         if (is_callable($this->message)) {
             return call_user_func($this->message);
         }
-        return (string) $this->message;
+        return $this->message;
     }
 }
