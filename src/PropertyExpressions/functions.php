@@ -42,3 +42,8 @@ function notIn(array $values): NotIn
 {
     return PropertyExpression::notIn($values);
 }
+
+function between(mixed $value1, mixed $value2): Between
+{
+    return PropertyExpression::between($value1, $value2);
+}

@@ -2,6 +2,7 @@
 
 namespace Gforces\ActiveRecord;
 
+use Gforces\ActiveRecord\PropertyExpressions\Between;
 use Gforces\ActiveRecord\PropertyExpressions\Compare;
 use Gforces\ActiveRecord\PropertyExpressions\In;
 use Gforces\ActiveRecord\PropertyExpressions\NotIn;
@@ -50,6 +51,12 @@ abstract class PropertyExpression
     {
         return new NotIn($values);
     }
+
+    public static function between(mixed $value1, mixed $value2): Between
+    {
+        return new Between($value1, $value2);
+    }
+
     abstract public function getExpression(Identifier $attribute): Expression;
 
     protected function getValueExpression(mixed $value): Expression

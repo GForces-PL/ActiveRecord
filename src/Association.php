@@ -15,7 +15,6 @@ abstract class Association extends PropertyAttribute
     abstract public function load(Base $object): Base|array|null;
     abstract public function save(Base $object): void;
 
-    #[Pure]
     protected function getClassFromArrayShape(ReflectionProperty $property): string
     {
         $attribute = $property->getAttributes(ArrayShape::class)[0] ?? null;
