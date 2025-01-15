@@ -6,7 +6,7 @@ use BackedEnum;
 use DateTime;
 use Gforces\ActiveRecord\ActiveRecordException;
 use Gforces\ActiveRecord\Expression;
-use Gforces\ActiveRecord\Property;
+use Gforces\ActiveRecord\StringableProperty;
 use ReflectionEnum;
 use UnitEnum;
 
@@ -32,6 +32,7 @@ class Value extends Expression
             'boolean' => (string) intval($value),
             'integer', 'double' => (string) $value,
             'NULL' => 'NULL',
+            'array' => $this->connection->quote(json_encode($value)),
             'object' => $this->quoteObjectValue($value),
             default => throw new ActiveRecordException('Invalid value type: ' . gettype($value)),
         };
@@ -60,7 +61,7 @@ class Value extends Expression
         if ($value instanceof DateTime) {
             return $this->connection->quote($value->format('Y-m-d H:i:s'));
         }
-        if ($value instanceof Property) {
+        if ($value instanceof StringableProperty) {
             return $this->connection->quote((string) $value);
         }
         throw new ActiveRecordException('Invalid value type: ' . get_class($value));

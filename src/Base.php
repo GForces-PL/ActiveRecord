@@ -100,6 +100,10 @@ class Base
                         continue;
                     }
                     $type = $property->getType()->getName();
+                    if ($type === 'array') {
+                        $property->setValue($object, json_decode($value));
+                        continue;
+                    }
                     if (is_a($type, BackedEnum::class, true)) {
                         $property->setValue($object, $type::from($value));
                         continue;
@@ -112,7 +116,7 @@ class Base
                         $property->setValue($object, $value ? new DateTime($value) : null);
                         continue;
                     }
-                    if (is_a($type, Property::class, true)) {
+                    if (is_a($type, StringableProperty::class, true)) {
                         $property->setValue($object, new $type($value));
                         continue;
                     }

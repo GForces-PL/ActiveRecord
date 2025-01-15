@@ -16,8 +16,8 @@ To use this implementation, any model representing a table in the database, must
 
 ### Properties
 
-All properties that correspond to columns in the table should be marked with the Column attribute by adding the comment #[Column].
-You can define the property type and its visibility according to your needs.  
+All properties that correspond to columns in the table should be marked with the Column attribute.
+You can define the property type, nullable and its visibility according to your needs.  
 That's all!
 ```PHP
 use Gforces\ActiveRecord\Base;
@@ -27,13 +27,42 @@ class Vehicle extends Base
 {
     #[Column] public int $id;
     #[Column] public string $make;
-    #[Column] public string $model;
+    #[Column] public ?string $model;
 }
 
-$vehicle = Vehicle::find(1);
+$vehicle = new Vehicle();
 $vehicle->make = 'BMW';
 $vehicle->model = 'X1';
 $vehicle->save();
+
+Vehicle::find(1)->model;
+```
+
+The $id property is auto_increment as default until any other column is marked as auto_increment, or it is disabled for `$id` column. 
+
+```PHP
+use Gforces\ActiveRecord\Base;
+use Gforces\ActiveRecord\Column;
+
+class Vehicle extends Base
+{
+    #[Column(autoIncrement: false)] public int $id;
+    #[Column] public string $make;
+}
+```
+
+The $id property is also a primary key as default and can be used to quickly find objects. You can also set different columns using #[PrimaryKey] attribute:
+```PHP
+use Gforces\ActiveRecord\Base;
+use Gforces\ActiveRecord\Column;
+use Gforces\ActiveRecord\PrimaryKey;
+
+class Vehicle extends Base
+{
+    #[Column(autoIncrement: true)] public int $evidenceNo;
+    #[Column] #[PrimaryKey] public string $make;
+    #[Column] #[PrimaryKey] public string $model;
+}
 ```
 
 #### Built-in property types
@@ -63,6 +92,47 @@ class User extends Base
 
 #### Backed Enums
 If property is an enum it is stored in the database as a value of enum case. A column in the database may or may not be of the enum type. When it is retrieved from the database it is converted to Enum value or will throw an error when has invalid value.
+
+#### Arrays
+If property is an array it is stored in database as an encoded JSON string. Your column in database can be JSON or any string type. Once object is retrieved from database it is decoded back to array.
+
+#### Stringable objects
+You can create any class which implements StringableProperty interface to use custom objects as your model property. It has to implements constructor with string argument which is used to create the object when retrieved from database and __toString() method when it is stored to database.
+
+```PHP
+use Gforces\ActiveRecord\Base;
+use Gforces\ActiveRecord\StringableProperty;
+
+class UserImage implements StringableProperty
+{
+    public readonly string $path;
+    
+    protected static string $defaultPath = '/images/default.png';
+
+    public function __construct(string $path = '')
+    {
+        $this->path = $path ?: static::$defaultPath;
+    }
+
+    public function getUrl(): string
+    {
+        return "https://example.com{$this->path}";
+    }
+
+    public function __toString(): string
+    {
+        return $this->path;
+    }
+}
+
+class User extends Base
+{
+    #[Column] public int $id;
+    #[Column] public UserImage $image;
+}
+
+User::find(1)->image->getUrl();
+```
 
 ### Relations
 
@@ -154,17 +224,17 @@ Vehicle::findAllBySql($query);
 ### Criteria
 Criteria can be a string with SQL expression or just an assoc array of properties and theirs values. 
 ```PHP
-User::findAll(['name' => 'Phil', 'male' => Sex::male, 'diabled' => false]);
+User::findAll(['name' => 'Phil', 'male' => Sex::male, 'disabled' => false]);
 User::findAll("`name` = 'Phil' AND `sex` = 'male' AND `disabled` = 0");
 ```
-When using assoc array, as default it builds quoted SQL expressions with AND operator. For array values operator IN is used and IS for nulls.
+When using assoc array, as default it builds a quoted SQL expressions with AND operator. For array values operator IN is used and IS for nulls.
 ```PHP
 User::findAll(['name' => 'Phil', 'male' => [Sex::male, Sex::female], 'diabled' => null]);
 User::findAll("`name` = 'Phil' AND `sex` IN ('male', 'female') AND `disabled` IS NULL");
 ```
 
 #### Property expressions
-To obtain other comparisons, you can use the AtrributeExpression like below:
+To obtain other comparisons, you can use the AttributeExpression like below:
 ```PHP
 use \Gforces\ActiveRecord\PropertyExpression;
 User::findAll([
@@ -213,7 +283,7 @@ User::findAll([
 ```
 
 ### isNew property
-This is a built-in property that determines whether an object is stored in the database.
+This is a built-in property that determines whether the object is stored in the database.
 
 ### Access to modified attributes
 There is a special property $keepAttributeChanges set on each model that decides if the object should keep the original values. For performance reasons, this functionality is disabled by default.

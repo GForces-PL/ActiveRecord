@@ -4,7 +4,7 @@ namespace Gforces\ActiveRecord;
 
 use Stringable;
 
-interface Property extends Stringable
+interface StringableProperty extends Stringable
 {
     public function __construct(string $value);
 }
