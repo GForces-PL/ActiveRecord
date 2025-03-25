@@ -50,7 +50,7 @@ class Base
      * @throws ActiveRecordException
      */
     #[ArrayShape([Base::class])]
-    public static function findAll(string|array $criteria = '', string $orderBy = '', int $limit = null, int $offset = null, string $select = '*'): array
+    public static function findAll(string|array $criteria = '', string $orderBy = '', ?int $limit = null, ?int $offset = null, string $select = '*'): array
     {
         return static::findAllBySql(static::buildQuery($criteria, $orderBy, $limit, $offset, $select));
     }
@@ -58,7 +58,7 @@ class Base
     /**
      * @throws ActiveRecordException
      */
-    public static function findFirst(string|array $criteria = '', string $orderBy = '', int $offset = null): ?static
+    public static function findFirst(string|array $criteria = '', string $orderBy = '', ?int $offset = null): ?static
     {
         return static::findAll($criteria, $orderBy, 1, $offset)[0] ?? null;
     }
@@ -66,7 +66,7 @@ class Base
     /**
      * @throws ActiveRecordException
      */
-    public static function findFirstByAttribute(string $attribute, mixed $value, string $orderBy = '', int $offset = null): ?static
+    public static function findFirstByAttribute(string $attribute, mixed $value, string $orderBy = '', ?int $offset = null): ?static
     {
         return static::findFirst(static::condition($attribute, $value), $orderBy, $offset);
     }
@@ -303,7 +303,7 @@ class Base
     /**
      * @throws ActiveRecordException
      */
-    protected static function buildQuery(string|array $criteria = '', string $orderBy = '', int $limit = null, int $offset = null, $select = '*', string $joins = ''): string
+    protected static function buildQuery(string|array $criteria = '', string $orderBy = '', ?int $limit = null, ?int $offset = null, $select = '*', string $joins = ''): string
     {
         $table = static::getQuotedTableName();
         if ($select === '*' && $joins) {
