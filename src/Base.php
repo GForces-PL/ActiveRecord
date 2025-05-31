@@ -3,6 +3,7 @@
 namespace Gforces\ActiveRecord;
 
 use BackedEnum;
+use DateMalformedStringException;
 use DateTime;
 use Gforces\ActiveRecord\Connection\Providers\Provider;
 use Gforces\ActiveRecord\Expressions\Value;
@@ -11,6 +12,7 @@ use JetBrains\PhpStorm\Deprecated;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionProperty;
+use stdClass;
 use Throwable;
 use UnitEnum;
 
@@ -92,39 +94,7 @@ class Base
 
         try {
             while ($row = $statement->fetchObject()) {
-                $object = $class->newInstanceWithoutConstructor();
-                foreach ($row as $key => $value) {
-                    try {
-                        $property = $class->getProperty($key);
-                    } catch (ReflectionException) {
-                        continue;
-                    }
-                    $type = $property->getType()->getName();
-                    if ($type === 'array') {
-                        $property->setValue($object, json_decode($value));
-                        continue;
-                    }
-                    if (is_a($type, BackedEnum::class, true)) {
-                        $property->setValue($object, $type::from($value));
-                        continue;
-                    }
-                    if (is_a($type, UnitEnum::class, true)) {
-                        $property->setValue($object, $value ? $type::{$value} : null);
-                        continue;
-                    }
-                    if (is_a($type, DateTime::class, true)) {
-                        $property->setValue($object, $value ? new DateTime($value) : null);
-                        continue;
-                    }
-                    if (is_a($type, StringableProperty::class, true)) {
-                        $property->setValue($object, new $type($value));
-                        continue;
-                    }
-                    $property->setValue($object, $value);
-                }
-                $object->isNew = false;
-                $object->__construct();
-                $objects[] = $object;
+                $objects[] = self::createObject($class, $row);
             }
         } catch (Throwable $e) {
             throw new ActiveRecordException($e->getMessage(), previous: $e);
@@ -315,6 +285,36 @@ class Base
             . self::queryPart('ORDER BY', $orderBy)
             . self::queryPart('LIMIT', (string) $limit)
             . self::queryPart('OFFSET', (string) $offset);
+    }
+
+    /**
+     * @throws DateMalformedStringException
+     * @throws ReflectionException
+     */
+    private static function createObject(ReflectionClass $class, stdClass $attributes)
+    {
+        $object = $class->newInstanceWithoutConstructor();
+        foreach ($attributes as $key => $value) {
+            try {
+                $property = $class->getProperty($key);
+            } catch (ReflectionException) {
+                continue;
+            }
+            $type = $property->getType()->getName();
+            $value = match(true) {
+                $type === 'array' => json_decode($value),
+                is_a($type, Base::class, true) => $value ? self::createObject(new ReflectionClass($type), json_decode($value)) : value,
+                is_a($type, BackedEnum::class, true) => $type::from($value),
+                is_a($type, UnitEnum::class, true) => $value ? $type::{$value} : null,
+                is_a($type, DateTime::class, true) => $value ? new DateTime($value) : null,
+                is_a($type, StringableProperty::class, true) => new $type($value),
+                default => $value,
+            };
+            $property->setValue($object, $value);
+        }
+        $object->isNew = false;
+        $object->__construct();
+        return $object;
     }
 
     private static function queryPart(string $prefix, string $part): string
