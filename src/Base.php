@@ -303,7 +303,7 @@ class Base
             $type = $property->getType()->getName();
             $value = match(true) {
                 $type === 'array' => json_decode($value),
-                is_a($type, Base::class, true) => $value ? self::createObject(new ReflectionClass($type), json_decode($value)) : value,
+                is_a($type, Base::class, true) => $value ? self::createObject(new ReflectionClass($type), json_decode($value)) : $value,
                 is_a($type, BackedEnum::class, true) => $type::from($value),
                 is_a($type, UnitEnum::class, true) => $value ? $type::{$value} : null,
                 is_a($type, DateTime::class, true) => $value ? new DateTime($value) : null,
