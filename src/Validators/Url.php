@@ -10,7 +10,7 @@ use Gforces\ActiveRecord\Validator;
 use JetBrains\PhpStorm\Pure;
 
 #[Attribute(Attribute::TARGET_PROPERTY)]
-class Required extends Validator
+class Url extends Validator
 {
     public function __construct(
         protected string $message = '',
@@ -22,15 +22,13 @@ class Required extends Validator
     #[Pure]
     protected function test(Base $object): bool
     {
-        if (!$this->property->isInitialized($object)) {
-            return !$object->isNew;
-        }
-        return !$this->isValueEmpty($this->property->getValue($object));
+        $value = $this->property->getValue($object);
+        return $this->isValueEmpty($value) || filter_var($value, FILTER_VALIDATE_URL) !== false;
     }
 
     #[Pure]
     protected function getDefaultMessage(): string
     {
-        return $this->getPropertyName() . ' is required';
+        return $this->getPropertyName() . ' is not valid URL';
     }
 }

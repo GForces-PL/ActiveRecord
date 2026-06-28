@@ -45,4 +45,11 @@ abstract class Validator extends PropertyAttribute
         }
         return $this->message;
     }
+
+    protected function isValueEmpty(mixed $value): bool
+    {
+        return $value === null
+            || $value === ''
+            || (is_array($value) && count($value) === 0);
+    }
 }

@@ -24,7 +24,12 @@ class Length extends Validator
     protected function test(Base $object): bool
     {
         $value = $this->property->getValue($object);
-        return (is_null($this->min) || strlen($value) >= $this->min) && (is_null($this->max) || strlen($value) <= $this->max);
+        if ($this->isValueEmpty($value)) {
+            return true;
+        }
+        $length = mb_strlen($value);
+        return ($this->min === null || $length >= $this->min)
+            && ($this->max === null || $length <= $this->max);
     }
 
     #[Pure]

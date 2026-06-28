@@ -172,7 +172,7 @@ $owner->save(); // or $owner->vehicles[0]->save();
 
 ### Validators
 
-Currently, only two simple validators are implemented. Feel free to add pull request with new validators.
+Currently, only few simple validators are implemented. Feel free to add pull request with new validators.
 In order to use validator you have to add another attribute to the property:
 ```PHP
 class Vehicle extends Base
@@ -186,8 +186,17 @@ class Vehicle extends Base
     public string $make;
     
     #[Column]
+    #[Required]
     #[Length(min: 10, max: 30)]
     public string $model;
+    
+    #[Column]
+    #[Url]
+    public string $website;
+    
+    #[Column]
+    #[Matches('/[(A-H|J-N|P|R-Z|0-9)]{17}/')]
+    public string $vin;
 }
 ```
 

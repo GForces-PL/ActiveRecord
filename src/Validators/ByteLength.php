@@ -10,27 +10,31 @@ use Gforces\ActiveRecord\Validator;
 use JetBrains\PhpStorm\Pure;
 
 #[Attribute(Attribute::TARGET_PROPERTY)]
-class Required extends Validator
+class ByteLength extends Validator
 {
     public function __construct(
+        private readonly ?int $min = null,
+        private readonly ?int $max = null,
         protected string $message = '',
         protected ValidationContext $context = ValidationContext::always,
     )
     {
     }
 
-    #[Pure]
     protected function test(Base $object): bool
     {
-        if (!$this->property->isInitialized($object)) {
-            return !$object->isNew;
+        $value = $this->property->getValue($object);
+        if ($this->isValueEmpty($value)) {
+            return true;
         }
-        return !$this->isValueEmpty($this->property->getValue($object));
+        $length = strlen($value);
+        return ($this->min === null || $length >= $this->min)
+            && ($this->max === null || $length <= $this->max);
     }
 
     #[Pure]
     protected function getDefaultMessage(): string
     {
-        return $this->getPropertyName() . ' is required';
+        return 'Invalid length of ' . $this->getPropertyName();
     }
 }
