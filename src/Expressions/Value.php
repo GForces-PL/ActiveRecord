@@ -18,7 +18,7 @@ class Value extends Expression
 
     public function isNull(): bool
     {
-        return $this->value instanceof Value ? $this->value->isNull() : is_null($this->value);
+        return $this->value instanceof Value ? $this->value->isNull() : $this->value === null;
     }
 
     /**
