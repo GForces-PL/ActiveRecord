@@ -2,8 +2,6 @@
 
 namespace Gforces\ActiveRecord;
 
-use Gforces\ActiveRecord\Exception\Validation;
-
-class ValidationException extends Validation
+class ValidationException extends ActiveRecordException
 {
 }
