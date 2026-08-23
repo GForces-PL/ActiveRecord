@@ -273,7 +273,7 @@ class Base
     /**
      * @throws ActiveRecordException
      */
-    protected static function buildQuery(string|array $criteria = '', string $orderBy = '', ?int $limit = null, ?int $offset = null, $select = '*', string $joins = ''): string
+    public static function buildQuery(string|array $criteria = '', string $orderBy = '', ?int $limit = null, ?int $offset = null, $select = '*', string $joins = ''): string
     {
         $table = static::getQuotedTableName();
         if ($select === '*' && $joins) {
