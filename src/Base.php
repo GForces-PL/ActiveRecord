@@ -218,10 +218,24 @@ class Base
         return self::$connectionProviders[static::class] ?? throw new ActiveRecordException('Connection provider is not set');
     }
 
+    public static function getDatabaseName(): ?string
+    {
+        return null;
+    }
+
     public static function getTableName(): string
     {
         static $tableNames;
         return $tableNames[static::class] ??= self::getDefaultTableName();
+    }
+
+    /**
+     * @throws ActiveRecordException
+     */
+    public static function getQuotedTableName(): string
+    {
+        $databaseName = static::getDatabaseName();
+        return ($databaseName ? static::quoteIdentifier($databaseName) . '.' : '') . static::quoteIdentifier(static::getTableName());
     }
 
     /**
@@ -332,14 +346,6 @@ class Base
         }
         $part = is_array($criteria) ? static::conditions((array) $criteria) : (string) $criteria;
         return self::queryPart('WHERE', $part);
-    }
-
-    /**
-     * @throws ActiveRecordException
-     */
-    private static function getQuotedTableName(): string
-    {
-        return static::quoteIdentifier(static::getTableName());
     }
 
     public function __construct()

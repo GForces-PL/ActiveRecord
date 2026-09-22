@@ -35,9 +35,11 @@ class HasAndBelongsToMany extends Association
         $objectForeignKey = $this->objectForeignKey ?: $objectTable . '_id';
         $relatedForeignKey = $this->relatedForeignKey ?: $relatedTable . '_id';
 
-        $query = "SELECT `$relatedTable`.* FROM `$relatedTable` INNER JOIN `$intermediateTable` 
-            ON `$intermediateTable`.`$relatedForeignKey` = `$relatedTable`.`id` AND `$intermediateTable`.`$objectForeignKey`= $object->id
-            ORDER BY `$relatedTable`.id";
+        $relatedQuotedTable = $relatedClass::getQuotedTableName();
+
+        $query = "SELECT $relatedQuotedTable.* FROM $relatedQuotedTable INNER JOIN `$intermediateTable`
+            ON `$intermediateTable`.`$relatedForeignKey` = $relatedQuotedTable.`id` AND `$intermediateTable`.`$objectForeignKey`= $object->id
+            ORDER BY $relatedQuotedTable.id";
         return $relatedClass::findAllBySql($query);
     }
 
