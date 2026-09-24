@@ -28,4 +28,13 @@ abstract class Association extends PropertyAttribute
     {
         return $this->property->getType()->getName();
     }
+
+    protected function callablePropertyValue(array|string $propertyValue, Base $object): string
+    {
+        if (is_callable($propertyValue)) {
+            return call_user_func($propertyValue, $object);
+        }
+        return (string) $propertyValue;
+    }
+
 }

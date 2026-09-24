@@ -13,7 +13,7 @@ use PDO;
 #[Attribute(Attribute::TARGET_PROPERTY)]
 class HasAndBelongsToMany extends Association
 {
-    public function __construct(private readonly string $relatedClass = '', private readonly array|string $intermediateTable = '', private readonly string $objectForeignKey = '', private readonly string $relatedForeignKey = '')
+    public function __construct(private readonly string $relatedClass = '', private readonly array|string $intermediateTable = '', private readonly array|string $objectForeignKey = '', private readonly array|string $relatedForeignKey = '')
     {
     }
 
@@ -32,8 +32,8 @@ class HasAndBelongsToMany extends Association
         $objectTable = $object::class::getTableName();
         $relatedTable = $relatedClass::getTableName();
         $intermediateTable = $this->getIntermediateTableName($object, $objectTable, $relatedTable);
-        $objectForeignKey = $this->objectForeignKey ?: $objectTable . '_id';
-        $relatedForeignKey = $this->relatedForeignKey ?: $relatedTable . '_id';
+        $objectForeignKey = $this->callablePropertyValue($this->objectForeignKey, $object) ?: ($objectTable . '_id');
+        $relatedForeignKey = $this->callablePropertyValue($this->relatedForeignKey, $object) ?: ($relatedTable . '_id');
 
         $relatedQuotedTable = $relatedClass::getQuotedTableName();
 
@@ -61,8 +61,8 @@ class HasAndBelongsToMany extends Association
         $objectTable = $object::class::getTableName();
         $relatedTable = $relatedClass::getTableName();
         $intermediateTable = $this->getIntermediateTableName($object, $objectTable, $relatedTable);
-        $objectForeignKey = $this->objectForeignKey ?: $objectTable . '_id';
-        $relatedForeignKey = $this->relatedForeignKey ?: $relatedTable . '_id';
+        $objectForeignKey = $this->callablePropertyValue($this->objectForeignKey, $object) ?: ($objectTable . '_id');
+        $relatedForeignKey = $this->callablePropertyValue($this->relatedForeignKey, $object) ?: ($relatedTable . '_id');
         $objectId = $object->id;
 
         $existingIds = $connection->query("SELECT `$relatedForeignKey` FROM `$intermediateTable` WHERE `$objectForeignKey` = $objectId")->fetchAll(PDO::FETCH_COLUMN);
@@ -92,9 +92,6 @@ class HasAndBelongsToMany extends Association
         if (empty($this->intermediateTable)) {
             return strcmp($objectTable, $relatedTable) < 0 ? $objectTable . '_' . $relatedTable : $relatedTable . '_' . $objectTable;
         }
-        if (is_callable($this->intermediateTable)) {
-            return call_user_func($this->intermediateTable, $object);
-        }
-        return $this->intermediateTable;
+        return $this->callablePropertyValue($this->intermediateTable, $object);
     }
 }

@@ -13,7 +13,7 @@ use ReflectionProperty;
 #[Attribute(Attribute::TARGET_PROPERTY)]
 class BelongsTo extends Association
 {
-    public function __construct(private readonly string $foreignKey = '')
+    public function __construct(private readonly array|string $foreignKey = '')
     {
     }
 
@@ -23,7 +23,7 @@ class BelongsTo extends Association
      */
     public function load(Base $object): Base
     {
-        $foreignKey = new ReflectionProperty($object, $this->foreignKey ?: $this->property->getName() . '_id');
+        $foreignKey = new ReflectionProperty($object, $this->callablePropertyValue($this->foreignKey, $object) ?: $this->property->getName() . '_id');
         /** @var class-string<Base> $class */
         $class = $this->getRelatedType();
         return $class::find($foreignKey->getValue($object));
