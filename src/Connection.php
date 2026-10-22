@@ -33,8 +33,9 @@ class Connection extends PDO
      */
     public function quoteIdentifier(string|array $identifier): string
     {
+        $this->q
         $char = $this->driver->getIdentifierQuotingCharacter();
-        return implode('.', array_map(fn($id) => "$char$id$char", (array) $identifier));
+        return implode('.', array_map(fn($id) => $char . str_replace($char, $char . $char, $id) . $char, (array) $identifier));
     }
 
     public function query(string $query, ?int $fetchMode = null, mixed ...$fetchModeArgs): PDOStatement|false
