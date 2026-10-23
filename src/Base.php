@@ -336,7 +336,7 @@ class Base
 
     private static function queryPart(string $prefix, string $part): string
     {
-        return $part ? " $prefix $part" : '';
+        return $part !== '' ? " $prefix $part" : '';
     }
 
     /**
