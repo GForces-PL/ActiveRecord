@@ -378,6 +378,18 @@ $vehicle->isMakeChanged(); // true
 $vehicle->save() // UPDATE query executed
 ```
 
+With change tracking enabled, snapshots keep independent copies of `DateTime`,
+`StringableProperty`, and nested arrays/JSON objects. In-place mutations are
+tracked; replacing a date or custom string value with an equivalent value does
+not trigger an update. Dates are compared at the stored `Y-m-d H:i:s` precision,
+custom string values by their string representation, and arrays by JSON encoding.
+`getOriginalValues()` returns independent copies of these mutable values.
+
+New objects insert all initialized columns, including PHP defaults such as
+`false` and `null`. Leave a property uninitialized to omit it from the insert and
+use the database default. After insertion, the snapshot includes the generated
+ID, so an immediate unchanged `save()` does not issue an update.
+
 ### Static methods
 You can use assoc array syntax, the same as for Criteria, in multiple static methods for your models
 ```PHP

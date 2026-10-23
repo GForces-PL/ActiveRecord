@@ -48,15 +48,18 @@ abstract class PropertyAttribute
     /**
      * @throws ActiveRecordException
      */
-    public static function get(string $class, string $property): static
+    public static function get(string $class, string $propertyName): static
     {
         try {
-            $property = new ReflectionProperty($class, $property);
+            $property = new ReflectionProperty($class, $propertyName);
         } catch (ReflectionException $e) {
             throw new ActiveRecordException($e->getMessage(), $e->getCode(), $e);
         }
         $attribute = static::getPropertyAttributes($property)[0]
-            ?? throw new ActiveRecordException("$class::$property has no " . static::class . " attribute");
+            ?? throw new ActiveRecordException("$class::$propertyName has no " . static::class . " attribute");
+        /**
+         * @var static $instance
+         */
         $instance = $attribute->newInstance();
         $instance->property = $property;
         return $instance;

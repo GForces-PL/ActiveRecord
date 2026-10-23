@@ -354,7 +354,7 @@ class Base
     public function __construct()
     {
         if (static::$keepAttributeChanges) {
-            $this->originalValues = $this->getValues();
+            $this->originalValues = self::snapshotValue($this->getValues());
         }
         /** @noinspection PhpUnhandledExceptionInspection */
         foreach (Association::getProperties(static::class) as $property) {
@@ -400,12 +400,13 @@ class Base
         $values = $this->getValues();
         $changedValues = [];
         foreach ($values as $attribute => $value) {
-            if (!array_key_exists($attribute, $this->originalValues) || $value !== $this->originalValues[$attribute]) {
+            if (!static::$keepAttributeChanges || !array_key_exists($attribute, $this->originalValues)
+                || self::comparisonValue($value) !== self::comparisonValue($this->originalValues[$attribute])) {
                 $changedValues[$attribute] = $value;
             }
         }
         if ($this->isNew) {
-            static::insert($changedValues);
+            static::insert($values);
             /** @noinspection PhpUnhandledExceptionInspection static::class used */
             Column::getAutoIncrementProperty(static::class)?->setValue($this, (int) static::getConnection()->lastInsertId());
             $this->rememberPrimaryKey();
@@ -414,7 +415,7 @@ class Base
             static::updateAll($changedValues, $primaryKey);
         }
         if (static::$keepAttributeChanges) {
-            $this->originalValues = $values;
+            $this->originalValues = self::snapshotValue($this->getValues());
         }
         /** @noinspection PhpUnhandledExceptionInspection static::class used */
         foreach (Association::getAll(static::class) as $association) {
@@ -497,7 +498,7 @@ class Base
             throw new ActiveRecordException('Changes are not stored for this object');
         }
         if (array_key_exists($attribute, $this->originalValues)) {
-            return $this->originalValues[$attribute] !== $this->{$attribute};
+            return self::comparisonValue($this->originalValues[$attribute]) !== self::comparisonValue($this->{$attribute});
         }
         try {
             return (new ReflectionProperty($this, $attribute))->isInitialized($this);
@@ -508,7 +509,41 @@ class Base
 
     protected function getOriginalValues(): array
     {
-        return $this->originalValues;
+        return self::snapshotValue($this->originalValues);
+    }
+
+    /** Compare the representation persisted by Value, rather than object identity. */
+    private static function comparisonValue(mixed $value): mixed
+    {
+        return match (true) {
+            $value instanceof DateTime => $value->format('Y-m-d H:i:s'),
+            $value instanceof StringableProperty => (string) $value,
+            is_array($value) => json_encode($value),
+            default => $value,
+        };
+    }
+
+    /** Keep mutable values independent of the model and of callers inspecting originals. */
+    private static function snapshotValue(mixed $value): mixed
+    {
+        if (is_array($value)) {
+            return array_map(self::snapshotValue(...), $value);
+        }
+        if ($value instanceof DateTime) {
+            return clone $value;
+        }
+        if ($value instanceof StringableProperty) {
+            $class = $value::class;
+            return new $class((string) $value);
+        }
+        if ($value instanceof stdClass) {
+            $copy = clone $value;
+            foreach ($value as $key => $item) {
+                $copy->$key = self::snapshotValue($item);
+            }
+            return $copy;
+        }
+        return $value;
     }
 
     private static function getDefaultTableName(): string
