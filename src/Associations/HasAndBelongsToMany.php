@@ -7,6 +7,8 @@ use Attribute;
 use Gforces\ActiveRecord\ActiveRecordException;
 use Gforces\ActiveRecord\Association;
 use Gforces\ActiveRecord\Base;
+use Gforces\ActiveRecord\Connection;
+use Gforces\ActiveRecord\Expressions\Value;
 use Gforces\ActiveRecord\ValidationException;
 use PDO;
 
@@ -37,9 +39,15 @@ class HasAndBelongsToMany extends Association
 
         $relatedQuotedTable = $relatedClass::getQuotedTableName();
 
-        $query = "SELECT $relatedQuotedTable.* FROM $relatedQuotedTable INNER JOIN `$intermediateTable`
-            ON `$intermediateTable`.`$relatedForeignKey` = $relatedQuotedTable.`id` AND `$intermediateTable`.`$objectForeignKey`= $object->id
-            ORDER BY $relatedQuotedTable.id";
+        $connection = $relatedClass::getConnection();
+        $intermediateTable = $connection->quoteIdentifier($intermediateTable);
+        $objectForeignKey = $connection->quoteIdentifier($objectForeignKey);
+        $relatedForeignKey = $connection->quoteIdentifier($relatedForeignKey);
+        $id = $connection->quoteIdentifier('id');
+        $objectId = $this->quoteValue($connection, $object->id);
+        $query = "SELECT $relatedQuotedTable.* FROM $relatedQuotedTable INNER JOIN $intermediateTable
+            ON $intermediateTable.$relatedForeignKey = $relatedQuotedTable.$id AND $intermediateTable.$objectForeignKey = $objectId
+            ORDER BY $relatedQuotedTable.$id";
         return $relatedClass::findAllBySql($query);
     }
 
@@ -63,9 +71,12 @@ class HasAndBelongsToMany extends Association
         $intermediateTable = $this->getIntermediateTableName($object, $objectTable, $relatedTable);
         $objectForeignKey = $this->callablePropertyValue($this->objectForeignKey, $object) ?: ($objectTable . '_id');
         $relatedForeignKey = $this->callablePropertyValue($this->relatedForeignKey, $object) ?: ($relatedTable . '_id');
-        $objectId = $object->id;
+        $intermediateTable = $connection->quoteIdentifier($intermediateTable);
+        $objectForeignKey = $connection->quoteIdentifier($objectForeignKey);
+        $relatedForeignKey = $connection->quoteIdentifier($relatedForeignKey);
+        $objectId = $this->quoteValue($connection, $object->id);
 
-        $existingIds = $connection->query("SELECT `$relatedForeignKey` FROM `$intermediateTable` WHERE `$objectForeignKey` = $objectId")->fetchAll(PDO::FETCH_COLUMN);
+        $existingIds = $connection->query("SELECT $relatedForeignKey FROM $intermediateTable WHERE $objectForeignKey = $objectId")->fetchAll(PDO::FETCH_COLUMN);
         $newIds = [];
         foreach ($this->property->getValue($object) as $relatedObject) {
             if (!$relatedObject instanceof Base) {
@@ -76,8 +87,8 @@ class HasAndBelongsToMany extends Association
             }
             $newIds[] = $relatedObject->id;
         }
-        $insertValues = implode(',', array_map(fn($relatedObjectId) => "($objectId,$relatedObjectId)", array_diff($newIds, $existingIds)));
-        $removeValues = implode(',', array_diff($existingIds, $newIds));
+        $insertValues = implode(',', array_map(fn($relatedObjectId) => "($objectId," . $this->quoteValue($connection, $relatedObjectId) . ")", array_diff($newIds, $existingIds)));
+        $removeValues = implode(',', array_map(fn($id) => $this->quoteValue($connection, $id), array_diff($existingIds, $newIds)));
 
         if ($insertValues) {
             $connection->exec("INSERT INTO $intermediateTable ($objectForeignKey, $relatedForeignKey) VALUES $insertValues");
@@ -85,6 +96,13 @@ class HasAndBelongsToMany extends Association
         if ($removeValues) {
             $connection->exec("DELETE FROM $intermediateTable WHERE $objectForeignKey = $objectId AND $relatedForeignKey IN ($removeValues)");
         }
+    }
+
+    private function quoteValue(Connection $connection, mixed $value): string
+    {
+        $expression = new Value($value);
+        $expression->connection = $connection;
+        return (string) $expression;
     }
 
     private function getIntermediateTableName(Base $object, string $objectTable, string $relatedTable): string

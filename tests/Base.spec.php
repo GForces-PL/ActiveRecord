@@ -40,13 +40,13 @@ describe(Base::class, function () {
     given('model', fn () => new $this->modelClass);
 
     given('connection', function () {
-        $connection = Double::instance(['class' => Connection::class]);
+        $connection = Double::instance(['extends' => Connection::class, 'methods' => ['__construct'], 'layer' => true]);
         allow($connection)->toReceive('quote')->andRun(fn($value) => "'$value'");
         allow($connection)->toReceive('quoteIdentifier')->andRun(fn($identifier) => "`$identifier`");
         return $connection;
     });
 
-    given('statement', fn () => Double::instance(['class' => Connection\Statement::class]));
+    given('statement', fn () => Double::instance(['extends' => Connection\Statement::class, 'methods' => ['__construct'], 'layer' => true]));
 
     describe('::find()', function () {
         it('uses findFirstByAttribute', function () {
@@ -246,13 +246,13 @@ describe(Base::class, function () {
 
     describe('::setConnection', function () {
         it('allows to set connections', function () {
-            $connection = Double::instance(['class' => Connection::class]);
+            $connection = Double::instance(['extends' => Connection::class, 'methods' => ['__construct'], 'layer' => true]);
             $modelClass = $this->modelClass;
             $modelClass::setConnection($connection);
             expect($modelClass::getConnection())->toBe($connection);
         });
         it('does not set connection to Base and other classes', function () {
-            $this->modelClass::setConnection(Double::instance(['class' => Connection::class]));
+            $this->modelClass::setConnection(Double::instance(['extends' => Connection::class, 'methods' => ['__construct'], 'layer' => true]));
 
             $otherClass = Double::classname(['extends' => Base::class]);
             expect(fn() => $otherClass::getConnection())->toThrow(new ActiveRecordException('Connection provider is not set'));
@@ -272,36 +272,36 @@ describe(Base::class, function () {
             expect(fn() => $this->modelClass::getConnection())->toThrow(new ActiveRecordException('Connection provider is not set'));
         });
         it('returns base connection if own is not set', function () {
-            Base::setConnection($connection = Double::instance(['class' => Connection::class]));
+            Base::setConnection($connection = Double::instance(['extends' => Connection::class, 'methods' => ['__construct'], 'layer' => true]));
             expect($this->modelClass::getConnection())->toBe($connection);
         });
         it('returns own connection even base connection is set', function () {
-            Base::setConnection($baseConnection = Double::instance(['class' => Connection::class]));
-            $this->modelClass::setConnection($ownConnection = Double::instance(['class' => Connection::class]));
+            Base::setConnection($baseConnection = Double::instance(['extends' => Connection::class, 'methods' => ['__construct'], 'layer' => true]));
+            $this->modelClass::setConnection($ownConnection = Double::instance(['extends' => Connection::class, 'methods' => ['__construct'], 'layer' => true]));
             expect($this->modelClass::getConnection())->toBe($ownConnection);
         });
         it('it throws exception even it is set for different class', function () {
             $otherClass = Double::classname(['extends' => Base::class]);
-            $otherClass::setConnection(Double::instance(['class' => Connection::class]));
+            $otherClass::setConnection(Double::instance(['extends' => Connection::class, 'methods' => ['__construct'], 'layer' => true]));
             expect(fn() => $this->modelClass::getConnection())->toThrow(new ActiveRecordException('Connection provider is not set'));
         });
         it('returns connection from own provider if both own and base connection are not set', function () {
             $provider = Double::instance(['implements' => Connection\Providers\Provider::class]);
-            allow($provider)->toReceive('getConnection')->andReturn($connection = Double::instance(['class' => Connection::class]));
+            allow($provider)->toReceive('getConnection')->andReturn($connection = Double::instance(['extends' => Connection::class, 'methods' => ['__construct'], 'layer' => true]));
             $this->modelClass::setConnectionProvider($provider);
             expect($this->modelClass::getConnection())->toBe($connection);
         });
         it('returns connection from base provider', function () {
             Base::setConnectionProvider($provider = Double::instance(['implements' => Connection\Providers\Provider::class]));
-            allow($provider)->toReceive('getConnection')->andReturn($connection = Double::instance(['class' => Connection::class]));
+            allow($provider)->toReceive('getConnection')->andReturn($connection = Double::instance(['extends' => Connection::class, 'methods' => ['__construct'], 'layer' => true]));
             expect($this->modelClass::getConnection())->toBe($connection);
         });
         it('returns the same connection for multiple classes if Base connection is set', function () {
             Base::setConnectionProvider($provider = Double::instance(['implements' => Connection\Providers\Provider::class]));
-            allow($provider)->toReceive('getConnection')->andReturn($connection = Double::instance(['class' => Connection::class]));
+            allow($provider)->toReceive('getConnection')->andReturn($connection = Double::instance(['extends' => Connection::class, 'methods' => ['__construct'], 'layer' => true]));
             expect($this->modelClass::getConnection())->toBe($connection);
             $otherClass = Double::classname(['extends' => Base::class]);
-            allow($provider)->toReceive('getConnection')->andReturn(Double::instance(['class' => Connection::class]));
+            allow($provider)->toReceive('getConnection')->andReturn(Double::instance(['extends' => Connection::class, 'methods' => ['__construct'], 'layer' => true]));
             expect($otherClass::getConnection())->toBe($connection);
         });
     });

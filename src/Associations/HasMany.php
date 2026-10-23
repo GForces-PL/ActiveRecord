@@ -30,7 +30,7 @@ class HasMany extends Association
         $objectTable = $object::class::getTableName();
         $foreignKey = $this->foreignKey ?: $objectTable . '_id';
         $objectId = $object->id;
-        return $relatedClass::findAll("`$foreignKey` = $objectId", $this->orderBy);
+        return $relatedClass::findAll([$foreignKey => $objectId], $this->orderBy);
     }
 
     public function save(Base $object): void

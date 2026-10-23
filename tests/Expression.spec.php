@@ -14,7 +14,7 @@ use Kahlan\Plugin\Double;
 
 describe('Expressions', function () {
     given('connection', function () {
-        $connection = Double::instance(['class' => Connection::class]);
+        $connection = Double::instance(['extends' => Connection::class, 'methods' => ['__construct'], 'layer' => true]);
         allow($connection)->toReceive('quote')->andRun(fn($value) => "'$value'");
         allow($connection)->toReceive('quoteIdentifier')->andRun(fn($identifier) => "`$identifier`");
         return $connection;

@@ -65,6 +65,20 @@ class Vehicle extends Base
 }
 ```
 
+#### Primary keys and partial selections
+
+For an existing object, `save()` and `remove()` require every primary-key column
+(or the default `id` column) to have been selected and to have a non-null value.
+Partial selections remain readable, but filling in a missing key afterward does
+not make them writable: reload the object with its complete key first.
+
+The library remembers the key on hydration and after insertion, independently
+of `$keepAttributeChanges`. Changing a persisted object's key causes `save()`
+and `remove()` to throw `ActiveRecordException` before executing a write.
+Setting `$isNew = false` manually does not establish a persisted identity.
+To change a key deliberately, use `updateAll()` with explicit criteria and reload
+the object afterward.
+
 #### Built-in property types
 All scalar built-in types are supported.
 
@@ -241,6 +255,22 @@ When using assoc array, as default it builds a quoted SQL expressions with AND o
 User::findAll(['name' => 'Phil', 'male' => [Sex::male, Sex::female], 'diabled' => null]);
 User::findAll("`name` = 'Phil' AND `sex` IN ('male', 'female') AND `disabled` IS NULL");
 ```
+
+#### SQL input safety
+
+Array criteria quote attribute names and values. Identifier quoting escapes the
+database's delimiter; use an array of identifier components with
+`Connection::quoteIdentifier(['table', 'column'])` for a qualified identifier.
+A string containing a dot is treated as one identifier.
+
+Raw criteria strings, `$orderBy`, `$select`, joins, custom SQL, and raw expressions
+are SQL code. Do not concatenate untrusted input into them. Map user-selected
+sort/filter fields to an allowlist of permitted columns; quoting alone does not
+control which columns a caller may access.
+
+The condition `'0'` is preserved as `WHERE 0`, and a limit of `0` is preserved as
+`LIMIT 0`. Empty criteria still mean no restriction, including for `updateAll()`
+and `deleteAll()`.
 
 #### Property expressions
 To obtain other comparisons, you can use the AttributeExpression like below:

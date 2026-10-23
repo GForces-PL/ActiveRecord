@@ -12,15 +12,21 @@ class PrimaryKey extends PropertyAttribute
      */
     public static function getValues(Base $object): array
     {
-        $values = parent::getValues($object);
-        if ($values) {
-            return $values;
+        $properties = static::getProperties($object::class);
+        if (!$properties) {
+            try {
+                $properties = ['id' => Column::get($object::class, 'id')->property];
+            } catch (ActiveRecordException $e) {
+                throw new ActiveRecordException('No primary key found for ' . $object::class, previous: $e);
+            }
         }
-        try {
-            $idColumn = Column::get($object::class, 'id');
-            return ['id' => $idColumn->property->getValue($object)];
-        } catch (ActiveRecordException) {
-            throw new ActiveRecordException('No primary key found for ' . $object::class);
+        $values = [];
+        foreach ($properties as $name => $property) {
+            if (!$property->isInitialized($object) || $property->getValue($object) === null) {
+                throw new ActiveRecordException('Incomplete primary key for ' . $object::class . ': ' . $name);
+            }
+            $values[$name] = $property->getValue($object);
         }
+        return $values;
     }
 }

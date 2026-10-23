@@ -37,6 +37,8 @@ class Base
 
     private array $originalValues = [];
 
+    private ?array $persistedPrimaryKey = null;
+
     /**
      * @throws ActiveRecordException
      */
@@ -326,6 +328,7 @@ class Base
             };
             $property->setValue($object, $value);
         }
+        $object->rememberPrimaryKey((array) $attributes);
         $object->isNew = false;
         $object->__construct();
         return $object;
@@ -390,6 +393,7 @@ class Base
      */
     public function save(bool $validate = true): void
     {
+        $primaryKey = $this->isNew ? null : $this->getPersistedPrimaryKey();
         if ($validate && !$this->isValid()) {
             throw new ValidationException('validation failed on save');
         }
@@ -404,9 +408,10 @@ class Base
             static::insert($changedValues);
             /** @noinspection PhpUnhandledExceptionInspection static::class used */
             Column::getAutoIncrementProperty(static::class)?->setValue($this, (int) static::getConnection()->lastInsertId());
+            $this->rememberPrimaryKey();
             $this->isNew = false;
         } else {
-            static::updateAll($changedValues, PrimaryKey::getValues($this));
+            static::updateAll($changedValues, $primaryKey);
         }
         if (static::$keepAttributeChanges) {
             $this->originalValues = $values;
@@ -425,7 +430,32 @@ class Base
         if ($this->isNew) {
             return;
         }
-        static::deleteAll(PrimaryKey::getValues($this));
+        static::deleteAll($this->getPersistedPrimaryKey());
+    }
+
+    private function rememberPrimaryKey(?array $loadedAttributes = null): void
+    {
+        try {
+            $this->persistedPrimaryKey = PrimaryKey::getValues($this);
+            if ($loadedAttributes !== null && array_diff_key($this->persistedPrimaryKey, $loadedAttributes)) {
+                $this->persistedPrimaryKey = null;
+            }
+        } catch (ActiveRecordException) {
+            // Partial selections remain readable, but cannot be saved or removed.
+            $this->persistedPrimaryKey = null;
+        }
+    }
+
+    private function getPersistedPrimaryKey(): array
+    {
+        $values = PrimaryKey::getValues($this);
+        if ($this->persistedPrimaryKey === null) {
+            throw new ActiveRecordException('No complete persisted primary key for ' . static::class);
+        }
+        if ($values !== $this->persistedPrimaryKey) {
+            throw new ActiveRecordException('Cannot change the primary key of a persisted ' . static::class);
+        }
+        return $this->persistedPrimaryKey;
     }
 
     public function __get(string $name)
