@@ -5,7 +5,6 @@ namespace Gforces\ActiveRecord\Connection\Providers;
 
 
 use Gforces\ActiveRecord\ActiveRecordException;
-use Gforces\ActiveRecord\Base;
 use Gforces\ActiveRecord\Connection;
 
 class Dsn implements Provider
@@ -19,8 +18,6 @@ class Dsn implements Provider
      */
     public function getConnection(): Connection
     {
-        $connection = new Connection($this->dsn, $this->username, $this->password, $this->options);
-        Base::setConnection($connection);
-        return $connection;
+        return new Connection($this->dsn, $this->username, $this->password, $this->options);
     }
 }

@@ -235,6 +235,20 @@ If you want the connection to be created only when it is needed, it is better to
 Base::setConnectionProvider(new Dsn($dsn, $username, $password));
 ```
 
+A provider creates and returns a connection without changing the global connection.
+`Base` caches the connection when it resolves the provider. Models without their
+own connection or provider share the default connection configured on `Base`.
+A model-specific provider leaves that default and other models' connections intact:
+
+```PHP
+Vehicle::setConnectionProvider(new Dsn($vehicleDsn, $username, $password));
+```
+
+Calling `$provider->getConnection()` directly creates a new connection on each
+call; it does not register it on `Base`. Use `Base::setConnectionProvider()` for
+lazy default configuration or `Base::setConnection()` for an existing connection.
+
+
 ### Finders
 The following finders are implemented as these were needed so far.
 ```PHP
