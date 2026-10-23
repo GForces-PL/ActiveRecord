@@ -22,6 +22,9 @@ class Url extends Validator
     #[Pure]
     protected function test(Base $object): bool
     {
+        if (!$this->property->isInitialized($object)) {
+            return true;
+        }
         $value = $this->property->getValue($object);
         return $this->isValueEmpty($value) || filter_var($value, FILTER_VALIDATE_URL) !== false;
     }

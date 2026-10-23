@@ -214,6 +214,19 @@ class Vehicle extends Base
 }
 ```
 
+Validation runs triggered by `isValid()`, `getErrors(true)`,
+`getErrorMessages(true)`, or `save()` replace previous errors. Correcting a field
+and validating again clears its old errors; repeated validation does not duplicate
+messages. `getErrors()` and `getErrorMessages()` without validation return the
+last validation result.
+
+`Length`, `ByteLength`, `Matches`, and `Url` skip uninitialized fields, as well as
+empty values. Combine them with `Required` when a value must be provided.
+`Required` rejects uninitialized fields on new objects; on existing objects it
+allows omitted fields (for partial selections), but still rejects initialized
+empty values. Validation contexts (`always`, `onCreate`, `onUpdate`) continue to
+apply normally.
+
 ### Setting up connection
 
 ActiveRecord uses PDO connection. There are two ways to configure connection with your database:

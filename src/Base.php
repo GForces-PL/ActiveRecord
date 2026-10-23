@@ -472,6 +472,7 @@ class Base
 
     protected function validate(): void
     {
+        $this->errors = [];
         /* @noinspection PhpUnhandledExceptionInspection Object is instance of Base and exists */
         foreach (Validator::getAll(static::class) as $validator) {
             try {

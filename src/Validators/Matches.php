@@ -22,6 +22,9 @@ class Matches extends Validator
 
     protected function test(Base $object): bool
     {
+        if (!$this->property->isInitialized($object)) {
+            return true;
+        }
         $value = $this->property->getValue($object);
         return $this->isValueEmpty($value) || preg_match($this->pattern, $value) === 1;
     }

@@ -23,6 +23,9 @@ class ByteLength extends Validator
 
     protected function test(Base $object): bool
     {
+        if (!$this->property->isInitialized($object)) {
+            return true;
+        }
         $value = $this->property->getValue($object);
         if ($this->isValueEmpty($value)) {
             return true;
