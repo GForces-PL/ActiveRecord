@@ -18,6 +18,9 @@ class In extends Expression
 
     public function __toString(): string
     {
+        if (!$this->values) {
+            return "1 = 0";
+        }
         $this->setConnection($this->expression, ...$this->values);
         return "$this->expression IN (" . implode(', ', $this->values) . ")";
     }

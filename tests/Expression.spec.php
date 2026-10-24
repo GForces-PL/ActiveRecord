@@ -99,4 +99,39 @@ describe('Expressions', function () {
             ]);
         });
     });
+    describe('Negation and empty sets', function () {
+        it('negates the entire conjunction', function () {
+            $expression = Expression::not(Expression::and(['a' => 1, 'b' => 2]));
+            $expression->connection = $this->connection;
+            expect((string) $expression)->toBe('NOT (`a` = 1 AND `b` = 2)');
+        });
+
+        it('preserves grouping for disjunctions and nested negations', function () {
+            $expression = Expression::not(Expression::or(['a' => 1, 'b' => 2]));
+            $expression->connection = $this->connection;
+            expect((string) $expression)->toBe('NOT ((`a` = 1 OR `b` = 2))');
+            $expression = Expression::not(Expression::not(Expression::buildForAttribute('a', 1)));
+            $expression->connection = $this->connection;
+            expect((string) $expression)->toBe('NOT (NOT (`a` = 1))');
+        });
+
+        it('renders empty IN as false and empty NOT IN as true', function () {
+            foreach ([[[], '1 = 0'], [PropertyExpression::in([]), '1 = 0'], [PropertyExpression::notIn([]), '1 = 1']] as [$value, $sql]) {
+                $expression = Expression::buildForAttribute('id', $value);
+                $expression->connection = $this->connection;
+                expect((string) $expression)->toBe($sql);
+            }
+        });
+
+        it('preserves empty-set predicates in queries and negated groups', function () {
+            allow(Simple::class)->toReceive('::getConnection')->andReturn($this->connection);
+            expect(Simple::buildQuery(['id' => []]))->toBe('SELECT * FROM `fixtures_simple` WHERE 1 = 0');
+            expect(Simple::buildQuery(['id' => PropertyExpression::notIn([])]))->toBe('SELECT * FROM `fixtures_simple` WHERE 1 = 1');
+            expect(Simple::buildQuery([
+                Expression::not(Expression::and(['id' => [], 'enabled' => true])),
+                'name' => 'Bill',
+            ]))->toBe("SELECT * FROM `fixtures_simple` WHERE NOT (1 = 0 AND `enabled` = 1) AND `name` = 'Bill'");
+        });
+    });
+
 });

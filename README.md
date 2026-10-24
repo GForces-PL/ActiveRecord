@@ -388,6 +388,15 @@ User::findAll([
 ]);
 ```
 
+`Expression::not($expression)` negates the entire expression using parentheses,
+including groups built with `Expression::and()` or `Expression::or()`.
+
+Empty `IN` lists (including criteria such as `['id' => []]`) produce `1 = 0` and
+match no rows. Empty `NOT IN` lists produce `1 = 1` and impose no restriction,
+including for nullable columns. This applies to reads and bulk writes alike:
+`deleteAll(['id' => PropertyExpression::notIn([])])` matches every row.
+Non-empty lists retain standard SQL behavior.
+
 ### isNew property
 This is a built-in property that determines whether the object is stored in the database.
 
