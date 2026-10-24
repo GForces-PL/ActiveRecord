@@ -316,22 +316,45 @@ class Base
             } catch (ReflectionException) {
                 continue;
             }
-            $type = $property->getType()->getName();
-            $value = match(true) {
-                $type === 'array' => (array) json_decode($value),
-                is_a($type, Base::class, true) => $value ? self::createObject(new ReflectionClass($type), json_decode($value)) : $value,
-                is_a($type, BackedEnum::class, true) => $type::from($value),
-                is_a($type, UnitEnum::class, true) => $value ? $type::{$value} : null,
-                is_a($type, DateTime::class, true) => $value ? new DateTime($value) : null,
-                is_a($type, StringableProperty::class, true) => new $type($value),
-                default => $value,
-            };
-            $property->setValue($object, $value);
+            try {
+                $reflectionType = $property->getType();
+                if (!$reflectionType instanceof \ReflectionNamedType) {
+                    throw new ActiveRecordException('A single named property type is required');
+                }
+                $type = $reflectionType->getName();
+                $value = match(true) {
+                    $value === null => null,
+                    in_array($type, ['int', 'float', 'string', 'bool'], true) => $value,
+                    $type === 'array' => self::decodeJsonArray($value, $property),
+                    is_a($type, Base::class, true) => self::createObject(new ReflectionClass($type), json_decode($value, flags: JSON_THROW_ON_ERROR)),
+                    is_a($type, BackedEnum::class, true) => $type::from($value),
+                    is_a($type, UnitEnum::class, true) => $type::{$value},
+                    is_a($type, DateTime::class, true) => $value === ''
+                        ? throw new ActiveRecordException('Empty date strings are not allowed')
+                        : new $type($value),
+                    is_a($type, StringableProperty::class, true) => new $type($value),
+                    default => throw new ActiveRecordException('Unsupported property type: ' . $type),
+                };
+                $property->setValue($object, $value);
+            } catch (Throwable $e) {
+                throw new ActiveRecordException('Cannot hydrate ' . $class->getName() . '::$' . $key . ': ' . $e->getMessage(), previous: $e);
+            }
         }
         $object->rememberPrimaryKey((array) $attributes);
         $object->isNew = false;
         $object->__construct();
         return $object;
+    }
+
+    private static function decodeJsonArray(string $json, ReflectionProperty $property): array
+    {
+        $attribute = $property->getAttributes(JsonArray::class, \ReflectionAttribute::IS_INSTANCEOF)[0] ?? null;
+        $associative = $attribute?->newInstance()->associative ?? true;
+        $decoded = json_decode($json, associative: $associative, flags: JSON_THROW_ON_ERROR);
+        if (!is_array($decoded) && !$decoded instanceof stdClass) {
+            throw new ActiveRecordException('Expected a JSON array or object');
+        }
+        return (array) $decoded;
     }
 
     private static function queryPart(string $prefix, string $part): string
@@ -518,7 +541,7 @@ class Base
         return match (true) {
             $value instanceof DateTime => $value->format('Y-m-d H:i:s'),
             $value instanceof StringableProperty => (string) $value,
-            is_array($value) => json_encode($value),
+            is_array($value) => json_encode($value, JSON_THROW_ON_ERROR),
             default => $value,
         };
     }

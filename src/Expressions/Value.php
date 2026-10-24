@@ -32,7 +32,7 @@ class Value extends Expression
             'boolean' => (string) intval($value),
             'integer', 'double' => (string) $value,
             'NULL' => 'NULL',
-            'array' => $this->connection->quote(json_encode($value)),
+            'array' => $this->connection->quote(json_encode($value, JSON_THROW_ON_ERROR)),
             'object' => $this->quoteObjectValue($value),
             default => throw new ActiveRecordException('Invalid value type: ' . gettype($value)),
         };

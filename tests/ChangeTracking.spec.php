@@ -56,11 +56,11 @@ describe('Change tracking snapshots', function () {
     it('detects mutable string values and nested JSON object changes', function () {
         $model = Tracked::findAllBySql('SELECT test')[0];
         $model->label->value = 'new';
-        $model->data['nested']->value = 2;
+        $model->data['nested']['value'] = 2;
         expect($model->changed('label'))->toBe(true);
         expect($model->changed('data'))->toBe(true);
         expect($model->originals()['label']->value)->toBe('old');
-        expect($model->originals()['data']['nested']->value)->toBe(1);
+        expect($model->originals()['data']['nested']['value'])->toBe(1);
         expect($this->connection)->toReceive('exec')->with('UPDATE `fixtures_tracked` SET `data` = \'{"nested":{"value":2}}\', `label` = \'new\' WHERE `id` = 1')->once();
         $model->save(false);
         expect($model->changed('label'))->toBe(false);
@@ -72,11 +72,11 @@ describe('Change tracking snapshots', function () {
         $originals = $model->originals();
         $originals['date']->modify('+1 day');
         $originals['label']->value = 'changed';
-        $originals['data']['nested']->value = 99;
+        $originals['data']['nested']['value'] = 99;
         expect($model->changed('date'))->toBe(false);
         expect($model->changed('label'))->toBe(false);
         expect($model->changed('data'))->toBe(false);
-        expect($model->originals()['data']['nested']->value)->toBe(1);
+        expect($model->originals()['data']['nested']['value'])->toBe(1);
     });
 
     it('keeps the old snapshot if a database write throws', function () {

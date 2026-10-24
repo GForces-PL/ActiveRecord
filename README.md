@@ -80,10 +80,20 @@ To change a key deliberately, use `updateAll()` with explicit criteria and reloa
 the object afterward.
 
 #### Built-in property types
-All scalar built-in types are supported.
+Scalar property types `int`, `float`, `string`, and `bool` are supported.
+Properties populated from query results must declare a supported named type;
+nullable declarations such as `?int` are supported. Untyped properties, union
+and intersection types, and unsupported named types produce an
+`ActiveRecordException` identifying the property.
+
+SQL `NULL` is preserved for nullable properties before conversion (including
+enums, dates, arrays, and custom string values). It is rejected for non-nullable
+properties. Omitted result columns leave property defaults/uninitialized values
+unchanged; unknown result columns are ignored.
 
 #### DateTime
 _\DateTime_ properties are stored in the database as formatted string 'Y-m-d H:i:s' and converted back to _\DateTime_ when retrieved.
+Empty date strings are rejected; use SQL `NULL` for nullable dates.
 It is not necessary for the column in the database to be also of type DATE or DATETIME, but when converting an invalid value to a DateTime object it may throw an error.
 
 #### Unit Enums
@@ -108,7 +118,37 @@ class User extends Base
 If property is an enum it is stored in the database as a value of enum case. A column in the database may or may not be of the enum type. When it is retrieved from the database it is converted to Enum value or will throw an error when has invalid value.
 
 #### Arrays
-If property is an array it is stored in database as an encoded JSON string. Your column in database can be JSON or any string type. Once object is retrieved from database it is decoded back to array.
+If property is an array it is stored in database as an encoded JSON string. Your column in database can be JSON or any string type. Once an object is retrieved, JSON arrays and objects are decoded into PHP arrays,
+including nested objects: use `$model->data['nested']['value']`, not
+`$model->data['nested']->value`.
+
+Use `#[JsonArray(associative: false)]` to preserve nested JSON objects as
+`stdClass`. The top-level result is always a PHP array, whether the JSON root is
+an array or an object; map keys are preserved. This controls JSON representation,
+not element typing or conversion into model classes.
+
+```PHP
+use Gforces\ActiveRecord\JsonArray;
+
+#[Column]
+#[JsonArray(associative: false)]
+public array $items; // e.g. $this->items[0]->name
+
+#[JsonArray(associative: false)]
+private array $queryResult; // helper populated by a matching SELECT alias
+
+#[JsonArray(associative: true)]
+private array $settings; // nested associative arrays
+```
+
+The attribute works on private properties and does not require `#[Column]`.
+Both an omitted attribute and `#[JsonArray]` default to `associative: true`.
+
+Malformed JSON and scalar JSON roots (including JSON `null`) are rejected with an
+`ActiveRecordException` identifying the property. SQL `NULL` remains `null` for a
+nullable array property; it is distinct from an empty JSON container (`[]` or
+`{}`), which decodes to `[]`. Encoding failures throw `JsonException` before the
+write, including invalid UTF-8. JSON checks also apply during change tracking.
 
 #### Stringable objects
 You can create any class which implements StringableProperty interface to use custom objects as your model property. It has to implements constructor with string argument which is used to create the object when retrieved from database and __toString() method when it is stored to database.
