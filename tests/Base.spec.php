@@ -244,6 +244,33 @@ describe(Base::class, function () {
         });
     });
 
+    describe('::save()', function () {
+        it('omits model properties which are not database columns', function () {
+            $model = new class extends Base {
+                public static function getTableName(): string
+                {
+                    return 'table';
+                }
+                #[Column]
+                public string $name;
+                #[Column]
+                public int $age;
+                #[Column]
+                public string $role;
+                public string $customProperty;
+            };
+            $model->name = 'Smith';
+            $model->age = 20;
+            $model->role = 'admin';
+            $model->customProperty = 'custom_value';
+
+            allow($this->connection)->toReceive('exec')->andReturn(1);
+            expect($this->connection)->toReceive('exec')->with("INSERT INTO `table` (`name`,`age`,`role`) VALUES ('Smith',20,'admin')");
+            $model::setConnection($this->connection);
+            $model->save();
+        });
+    });
+
     describe('::setConnection', function () {
         it('allows to set connections', function () {
             $connection = Double::instance(['extends' => Connection::class, 'methods' => ['__construct'], 'layer' => true]);

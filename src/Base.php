@@ -9,6 +9,7 @@ use Gforces\ActiveRecord\Connection\Providers\Provider;
 use Gforces\ActiveRecord\Expressions\Value;
 use JetBrains\PhpStorm\ArrayShape;
 use JetBrains\PhpStorm\Deprecated;
+use JsonException;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionProperty;
@@ -412,7 +413,7 @@ class Base
     /**
      * @throws ValidationException
      * @throws ActiveRecordException
-     * @noinspection PhpDocMissingThrowsInspection
+     * @throws ReflectionException
      */
     public function save(bool $validate = true): void
     {
@@ -421,13 +422,6 @@ class Base
             throw new ValidationException('validation failed on save');
         }
         $values = $this->getValues();
-        $changedValues = [];
-        foreach ($values as $attribute => $value) {
-            if (!static::$keepAttributeChanges || !array_key_exists($attribute, $this->originalValues)
-                || self::comparisonValue($value) !== self::comparisonValue($this->originalValues[$attribute])) {
-                $changedValues[$attribute] = $value;
-            }
-        }
         if ($this->isNew) {
             static::insert($values);
             /** @noinspection PhpUnhandledExceptionInspection static::class used */
@@ -435,6 +429,9 @@ class Base
             $this->rememberPrimaryKey();
             $this->isNew = false;
         } else {
+            $changedValues = static::$keepAttributeChanges
+                ? array_filter($values, $this->isValueChanged(...), ARRAY_FILTER_USE_BOTH)
+                : $values;
             static::updateAll($changedValues, $primaryKey);
         }
         if (static::$keepAttributeChanges) {
@@ -514,20 +511,28 @@ class Base
 
     /**
      * @throws ActiveRecordException
+     * @throws JsonException
      */
-    protected function isAttributeChanged($attribute): bool
+    protected function isAttributeChanged(string $attribute): bool
     {
         if (!static::$keepAttributeChanges) {
             throw new ActiveRecordException('Changes are not stored for this object');
         }
-        if (array_key_exists($attribute, $this->originalValues)) {
-            return self::comparisonValue($this->originalValues[$attribute]) !== self::comparisonValue($this->{$attribute});
+        $property = Column::get(static::class, $attribute)->property;
+        if (!$property->isInitialized($this)) {
+            return array_key_exists($attribute, $this->originalValues);
         }
-        try {
-            return (new ReflectionProperty($this, $attribute))->isInitialized($this);
-        } catch (ReflectionException $e) {
-            throw new ActiveRecordException('Could nor check changes for invalid attribute', previous: $e);
-        }
+        return $this->isValueChanged($property->getValue($this), $attribute);
+    }
+
+    /**
+     * @throws JsonException
+     */
+    private function isValueChanged(mixed $value, string $attribute): bool
+    {
+        return !array_key_exists($attribute, $this->originalValues)
+            || self::comparisonValue($value)
+            !== self::comparisonValue($this->originalValues[$attribute]);
     }
 
     protected function getOriginalValues(): array
