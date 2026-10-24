@@ -5,6 +5,7 @@ namespace Gforces\ActiveRecord;
 use Gforces\ActiveRecord\Expressions\BooleanExpr;
 use Gforces\ActiveRecord\Expressions\BooleanOperator;
 use Gforces\ActiveRecord\Expressions\Identifier;
+use Gforces\ActiveRecord\Expressions\Not;
 use Gforces\ActiveRecord\Expressions\Simple;
 use Stringable;
 
@@ -30,6 +31,11 @@ abstract class Expression implements Stringable
     public static function xor(array $expressions): BooleanExpr
     {
         return new BooleanExpr(BooleanOperator::xor, ...self::buildExpressions($expressions));
+    }
+
+    public static function not(Expression $expression): Not
+    {
+        return new Not($expression);
     }
 
     public static function buildForAttribute(string $attribute, mixed $value): Expression
