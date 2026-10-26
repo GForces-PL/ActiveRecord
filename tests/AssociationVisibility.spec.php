@@ -1,5 +1,6 @@
 <?php
 
+use Gforces\ActiveRecord\ActiveRecordException;
 use Fixtures\{RelationChild, RelationVisibility, RelationVisibilityChild};
 use Gforces\ActiveRecord\Association;
 
@@ -28,7 +29,7 @@ describe('Association property visibility', function () {
                 if ($name === 'publicChildren') {
                     expect($model->$name)->toBe($expected);
                 } else {
-                    expect(fn() => $model->$name)->toThrow(new Error());
+                    expect(fn() => $model->$name)->toThrow(new ActiveRecordException());
                     // A rejected read must not load or replace the relation.
                     expect($property->isInitialized($model))->toBe($loaded);
                     if ($loaded) {
@@ -45,7 +46,7 @@ describe('Association property visibility', function () {
                     $property->setValue($model, $expected);
                 }
                 if ($name === 'privateChildren') {
-                    expect(fn() => $model->readInChildClass($name))->toThrow(new Error());
+                    expect(fn() => $model->readInChildClass($name))->toThrow(new ActiveRecordException());
                 } else {
                     expect($model->readInChildClass($name))->toBe($expected);
                 }
@@ -58,20 +59,43 @@ describe('Association property visibility', function () {
         expect($model->readInDeclaringClass('privateChildren'))->toBe([]);
     });
 
-    it('unsets every relation after hydration even when a custom constructor initializes it', function () {
+    it('preserves hydrated relations through the constructor', function () {
+        $model = (new ReflectionMethod(\Gforces\ActiveRecord\Base::class, 'createObject'))
+            ->invoke(null, new ReflectionClass(RelationVisibility::class), (object) [
+                'publicChildren' => '[1]',
+                'protectedChildren' => '[2]',
+                'privateChildren' => '[3]',
+            ]);
+        foreach (['publicChildren' => [1], 'protectedChildren' => [2], 'privateChildren' => [3]] as $name => $expected) {
+            expect($model->readInDeclaringClass($name))->toBe($expected);
+        }
+    });
+
+    it('preserves relations assigned before the parent constructor and after hydration', function () {
         $class = new ReflectionClass(new class extends RelationVisibilityChild {
             public function __construct()
             {
                 foreach (['publicChildren', 'protectedChildren', 'privateChildren'] as $name) {
                     (new ReflectionProperty(RelationVisibility::class, $name))->setValue($this, []);
                 }
+                parent::__construct();
             }
         });
         $model = (new ReflectionMethod(\Gforces\ActiveRecord\Base::class, 'createObject'))
-            ->invoke(null, $class, (object) ['publicChildren' => '[]', 'protectedChildren' => '[]']);
+            ->invoke(null, $class, (object) []);
         foreach (['publicChildren', 'protectedChildren', 'privateChildren'] as $name) {
-            expect((new ReflectionProperty(RelationVisibility::class, $name))->isInitialized($model))->toBe(false);
+            expect((new ReflectionProperty(RelationVisibility::class, $name))->isInitialized($model))->toBe(true);
+            expect($model->readInDeclaringClass($name))->toBe([]);
         }
+    });
+
+    it('preserves an explicitly initialized null relation', function () {
+        $model = new class extends \Gforces\ActiveRecord\Base {
+            #[\Gforces\ActiveRecord\Associations\HasOne(foreignKey: 'owner_id')]
+            public ?RelationChild $child = null;
+        };
+        expect((new ReflectionProperty($model, 'child'))->isInitialized($model))->toBe(true);
+        expect($model->child)->toBe(null);
     });
 
     it('keeps non-public relations available as internal association metadata', function () {

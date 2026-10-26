@@ -353,7 +353,6 @@ class Base
         $object->rememberPrimaryKey((array) $attributes);
         $object->isNew = false;
         $object->__construct();
-        $object->unsetAssociations();
         return $object;
     }
 
@@ -394,7 +393,7 @@ class Base
         if (static::$keepAttributeChanges) {
             $this->originalValues = self::snapshotValue($this->getValues());
         }
-        $this->unsetAssociations();
+        $this->prepareLazyAssociations();
         foreach (BelongsTo::getAll($this) as $association) {
             $association->remember($this);
         }
@@ -556,9 +555,12 @@ class Base
         return $this->persistedPrimaryKey;
     }
 
-    private function unsetAssociations(): void
+    private function prepareLazyAssociations(): void
     {
         foreach (Association::getProperties($this) as $property) {
+            if ($property->isInitialized($this)) {
+                continue;
+            }
             Closure::bind(function () use ($property) {
                 unset($this->{$property->getName()});
             }, $this, $property->getDeclaringClass()->getName())();
@@ -583,8 +585,7 @@ class Base
         if ($association instanceof BelongsTo) {
             $association->rememberLoaded($this);
         }
-        $value = Closure::bind(function &() use ($name) { return $this->$name; }, $this, $association->property->getDeclaringClass()->getName())();
-        return $value;
+        return Closure::bind(function &() use ($name) { return $this->$name; }, $this, $association->property->getDeclaringClass()->getName())();
     }
 
     private function isPropertyReadable(ReflectionProperty $property, ?string $caller): bool
