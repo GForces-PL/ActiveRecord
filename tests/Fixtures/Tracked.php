@@ -1,6 +1,7 @@
 <?php
 namespace Fixtures;
 
+use DateTime;
 use Gforces\ActiveRecord\Base;
 use Gforces\ActiveRecord\Column;
 
@@ -11,7 +12,7 @@ class Tracked extends Base
     #[Column] public string $name = 'default';
     #[Column] public bool $enabled = false;
     #[Column] public ?string $optional = null;
-    #[Column] public \DateTime $date;
+    #[Column] public DateTime $date;
     #[Column] public array $data;
     #[Column] public MutableString $label;
 

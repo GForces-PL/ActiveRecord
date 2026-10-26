@@ -7,6 +7,7 @@ use Attribute;
 use Gforces\ActiveRecord\ActiveRecordException;
 use Gforces\ActiveRecord\Association;
 use Gforces\ActiveRecord\Base;
+use Gforces\ActiveRecord\Column;
 
 #[Attribute(Attribute::TARGET_PROPERTY)]
 class HasOne extends Association
@@ -36,22 +37,33 @@ class HasOne extends Association
     /**
      * @throws ActiveRecordException
      */
+    public function check(Base $object): void
+    {
+        if (!$this->property->isInitialized($object)) {
+            return;
+        }
+        $foreignKey = $this->foreignKey ?: $object::getTableName() . '_id';
+        Column::get($this->getRelatedType(), $foreignKey);
+        $related = $this->property->getValue($object);
+        if ($related !== null) {
+            $this->checkChild($object, $related, $foreignKey);
+        }
+    }
+
     public function save(Base $object): void
     {
         if (!$this->property->isInitialized($object)) {
             return;
         }
-        $relatedObject = $this->property->getValue($object);
-        $objectTable = $object::getTableName();
-        $foreignKey = $this->foreignKey ?: $objectTable . '_id';
-        if (!$relatedObject) {
-            /** @var class-string<Base> $class */
-            $class = $this->getRelatedType();
-            $class::deleteAll([$foreignKey => $object->id]);
-            return;
+        $this->check($object);
+        $related = $this->property->getValue($object);
+        $foreignKey = $this->foreignKey ?: $object::getTableName() . '_id';
+        $ids = [];
+        if ($related !== null) {
+            $related->persistForeignKey($foreignKey, $object->relationId());
+            $ids[] = $related->relationId();
         }
-        $relatedObject->$foreignKey = $object->id;
-        $relatedObject->save();
+        $this->removeMissing($this->getRelatedType(), $foreignKey, $object->relationId(), $ids);
     }
 
     private function getDefaultValue(): ?Base

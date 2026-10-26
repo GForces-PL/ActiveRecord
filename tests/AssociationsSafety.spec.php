@@ -51,9 +51,9 @@ describe('Association SQL safety', function () {
             allow($connection)->toReceive('query')->andReturn($statement);
             allow($connection)->toReceive('exec')->andReturn(1);
             expect($connection)->toReceive('query')->with("SELECT $relatedKey FROM $table WHERE $ownerKey = $ownerId")->once();
-            $related = new Simple();
-            $related->id = 9;
-            $related->isNew = false;
+            $related = (new ReflectionMethod(\Gforces\ActiveRecord\Base::class, 'createObject'))->invoke(
+                null, new ReflectionClass(Simple::class), (object) ['id' => 9]
+            );
             $owner->links = [$related];
             expect($connection)->toReceive('exec')->with("INSERT INTO $table ($ownerKey, $relatedKey) VALUES ($ownerId,9)")->once();
             expect($connection)->toReceive('exec')->with("DELETE FROM $table WHERE $ownerKey = $ownerId AND $relatedKey IN ('old'' OR 1=1 --')")->once();

@@ -3,6 +3,7 @@
 use Fixtures\CompositeKey;
 use Fixtures\Simple;
 use Gforces\ActiveRecord\ActiveRecordException;
+use Gforces\ActiveRecord\Column;
 use Gforces\ActiveRecord\Connection;
 use Gforces\ActiveRecord\PrimaryKey;
 use Kahlan\Plugin\Double;
@@ -47,7 +48,7 @@ describe('Write safety', function () {
 
     it('does not treat PHP defaults as keys returned by the database', function () {
         $prototype = new class extends Simple {
-            #[\Gforces\ActiveRecord\Column] public int $id = 100;
+            #[Column] public int $id = 100;
         };
         $prototype::setConnection($this->connection);
         $model = ($this->load)($prototype::class, ['name' => 'partial']);

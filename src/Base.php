@@ -3,15 +3,19 @@
 namespace Gforces\ActiveRecord;
 
 use BackedEnum;
+use Closure;
 use DateMalformedStringException;
 use DateTime;
+use Gforces\ActiveRecord\Associations\BelongsTo;
 use Gforces\ActiveRecord\Connection\Providers\Provider;
 use Gforces\ActiveRecord\Expressions\Value;
 use JetBrains\PhpStorm\ArrayShape;
 use JetBrains\PhpStorm\Deprecated;
 use JsonException;
+use ReflectionAttribute;
 use ReflectionClass;
 use ReflectionException;
+use ReflectionNamedType;
 use ReflectionProperty;
 use stdClass;
 use Throwable;
@@ -37,6 +41,8 @@ class Base
     protected array $errors = [];
 
     private array $originalValues = [];
+
+    private static ?AssociationSaveContext $saveContext = null;
 
     private ?array $persistedPrimaryKey = null;
 
@@ -307,9 +313,11 @@ class Base
     /**
      * @throws DateMalformedStringException
      * @throws ReflectionException
+     * @throws ActiveRecordException
      */
-    private static function createObject(ReflectionClass $class, stdClass $attributes)
+    private static function createObject(ReflectionClass $class, stdClass $attributes): Base
     {
+        /** @var Base $object */
         $object = $class->newInstanceWithoutConstructor();
         foreach ($attributes as $key => $value) {
             try {
@@ -319,7 +327,7 @@ class Base
             }
             try {
                 $reflectionType = $property->getType();
-                if (!$reflectionType instanceof \ReflectionNamedType) {
+                if (!$reflectionType instanceof ReflectionNamedType) {
                     throw new ActiveRecordException('A single named property type is required');
                 }
                 $type = $reflectionType->getName();
@@ -347,9 +355,13 @@ class Base
         return $object;
     }
 
+    /**
+     * @throws ActiveRecordException
+     * @throws JsonException
+     */
     private static function decodeJsonArray(string $json, ReflectionProperty $property): array
     {
-        $attribute = $property->getAttributes(JsonArray::class, \ReflectionAttribute::IS_INSTANCEOF)[0] ?? null;
+        $attribute = $property->getAttributes(JsonArray::class, ReflectionAttribute::IS_INSTANCEOF)[0] ?? null;
         $associative = $attribute?->newInstance()->associative ?? true;
         $decoded = json_decode($json, associative: $associative, flags: JSON_THROW_ON_ERROR);
         if (!is_array($decoded) && !$decoded instanceof stdClass) {
@@ -382,7 +394,10 @@ class Base
         }
         /** @noinspection PhpUnhandledExceptionInspection */
         foreach (Association::getProperties(static::class) as $property) {
-            unset($this->{$property->getName()});
+            Closure::bind(function () use ($property) { unset($this->{$property->getName()}); }, $this, $property->getDeclaringClass()->getName())();
+        }
+        foreach (BelongsTo::getAll(static::class) as $association) {
+            $association->remember($this);
         }
     }
 
@@ -399,8 +414,6 @@ class Base
         return $this->errors;
     }
 
-    /**
-     */
     public function getErrorMessages($validate = false): array
     {
         $messages = [];
@@ -417,7 +430,30 @@ class Base
      */
     public function save(bool $validate = true): void
     {
+        $root = self::$saveContext === null;
+        self::$saveContext ??= new AssociationSaveContext();
+        try {
+            self::$saveContext->check($this);
+            if (self::$saveContext->enter($this)) {
+                $this->persist($validate);
+            }
+            if ($root) {
+                self::$saveContext->finish();
+            }
+        } finally {
+            if ($root) {
+                self::$saveContext = null;
+            }
+        }
+    }
+
+    private function persist(bool $validate): void
+    {
         $primaryKey = $this->isNew ? null : $this->getPersistedPrimaryKey();
+        $belongsTo = BelongsTo::getAll(static::class);
+        foreach ($belongsTo as $association) {
+            $association->save($this);
+        }
         if ($validate && !$this->isValid()) {
             throw new ValidationException('validation failed on save');
         }
@@ -437,10 +473,10 @@ class Base
         if (static::$keepAttributeChanges) {
             $this->originalValues = self::snapshotValue($this->getValues());
         }
-        /** @noinspection PhpUnhandledExceptionInspection static::class used */
-        foreach (Association::getAll(static::class) as $association) {
-            $association->save($this);
+        foreach ($belongsTo as $association) {
+            $association->remember($this);
         }
+        self::$saveContext->defer($this, Association::getAll(static::class));
     }
 
     /**
@@ -452,6 +488,48 @@ class Base
             return;
         }
         static::deleteAll($this->getPersistedPrimaryKey());
+    }
+
+    /** @internal Update only a relationship column, preserving other dirty fields. */
+    public function persistForeignKey(string $attribute, mixed $value): void
+    {
+        $property = Column::get(static::class, $attribute)->property;
+        if ($this->isNew) {
+            $property->setValue($this, $value);
+            $this->save();
+            return;
+        }
+        $key = $this->getPersistedPrimaryKey();
+        if (array_key_exists($attribute, $key) && $key[$attribute] !== $value) {
+            throw new AssociationException('Cannot change a primary key through a relation');
+        }
+        if (static::updateAll([$attribute => $value], $key) === false) {
+            throw new AssociationException('Failed to update foreign key');
+        }
+        $property->setValue($this, $value);
+        if (static::$keepAttributeChanges) {
+            $this->originalValues[$attribute] = self::snapshotValue($value);
+        }
+        foreach (BelongsTo::getAll(static::class) as $association) {
+            if ($association->foreignKey($this)->getName() === $attribute) {
+                $association->invalidate($this);
+                $association->remember($this);
+            }
+        }
+    }
+
+    /** @internal Relations require an unchanged, complete persisted identity. */
+    public function relationId(): mixed
+    {
+        if ($this->isNew) {
+            throw new AssociationException('Related object has not been saved');
+        }
+        $this->getPersistedPrimaryKey();
+        $id = Column::get(static::class, 'id')->property;
+        if (!$id->isInitialized($this) || $id->getValue($this) === null) {
+            throw new AssociationException('Related object requires an id');
+        }
+        return $id->getValue($this);
     }
 
     private function rememberPrimaryKey(?array $loadedAttributes = null): void
@@ -479,10 +557,18 @@ class Base
         return $this->persistedPrimaryKey;
     }
 
-    public function __get(string $name)
+    public function &__get(string $name)
     {
         try {
-            return $this->{$name} = Association::get(static::class, $name)->load($this);
+            $association = Association::get(static::class, $name);
+            $value = $association->load($this);
+            $association->property->setValue($this, $value);
+            if ($association instanceof BelongsTo) {
+                $association->rememberLoaded($this);
+            }
+            $getter = Closure::bind(function &() use ($name) { return $this->$name; }, $this, $association->property->getDeclaringClass()->getName());
+            $result =& $getter();
+            return $result;
         } catch (ActiveRecordException $e) {
             $class = static::class;
             $file = $e->getTrace()[2]['file'];

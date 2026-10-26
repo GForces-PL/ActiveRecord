@@ -224,6 +224,51 @@ $owner->vehicles[0]->make = 'BMW';
 $owner->save(); // or $owner->vehicles[0]->save(); 
 ```
 
+Saving initialized relations synchronizes their links and automatically saves **new**
+related objects. Existing related objects keep their other unsaved changes: save
+those objects explicitly to persist their ordinary attributes and relations.
+
+- `BelongsTo` saves a new related object first, then assigns its `id` to the
+  owner's foreign key. An explicit `null` clears a nullable foreign key.
+- `HasMany` treats the initialized array as the complete desired collection.
+  It assigns the parent's `id` to each child's foreign key, saving new children
+  and updating only that key on existing children. The related class comes from
+  `relatedClass` or the existing `ArrayShape` convention.
+- Children omitted from `HasMany` are detached (`FK = NULL`) when the child's
+  typed foreign-key property allows null; otherwise they are deleted. Cleanup
+  affects only rows still belonging to this parent. `[]` clears the collection.
+- `HasOne` follows the same replacement and cleanup rules. Nullable `HasOne`
+  returns `null` when no record exists; non-nullable `HasOne` retains its
+  default-object behavior. Explicitly assigning `null` clears the relation.
+- `HasAndBelongsToMany` synchronizes the join table. Removing items deletes only
+  their join rows, never the related records. New related objects are saved;
+  existing related objects are not saved.
+- Uninitialized relations are skipped. `$owner->vehicles[] = $vehicle` loads the
+  existing collection before appending. To add without loading the collection,
+  assign `$vehicle->owner = $owner` and save the vehicle.
+
+For `BelongsTo`, changing only the foreign key makes that key authoritative and
+invalidates the cached relation on save. Changing only the relation updates the
+key. Changing both is accepted only when they agree; a conflict throws
+`AssociationException` before cascading writes. This comparison works even when
+attribute-change tracking is disabled.
+
+Inverse references to an already persisted object do not recursively save it.
+Circular insert dependencies requiring an unsaved object's ID throw
+`AssociationException`. These relations still assume an `id` key. New related
+objects use their normal validation even when the initiating call uses
+`save(false)`.
+
+Collections represent the caller's desired database state, including collections
+loaded earlier or with filtering. There is no identity map: saving a stale or
+partial collection may undo later changes or remove omitted children. Refresh
+or adjust collections before saving them.
+
+Cascading saves do not automatically open a transaction. For atomic writes on
+one connection, wrap the operation in a transaction; otherwise a later failure
+can leave earlier objects persisted. In-memory state is not automatically restored
+by rolling back a database transaction.
+
 ### Validators
 
 Currently, only few simple validators are implemented. Feel free to add pull request with new validators.

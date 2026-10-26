@@ -1,6 +1,7 @@
 <?php
 
 use Gforces\ActiveRecord\Base;
+use Gforces\ActiveRecord\Connection;
 use Gforces\ActiveRecord\ValidationContext;
 use Gforces\ActiveRecord\ValidationException;
 use Gforces\ActiveRecord\Validators\{Required, Length, ByteLength, Matches, Url};
@@ -48,7 +49,7 @@ describe('Validation lifecycle', function () {
     it('revalidates corrected data when retrying save', function () {
         $model = $this->model;
         $class = $model::class;
-        $connection = Double::instance(['extends' => \Gforces\ActiveRecord\Connection::class, 'methods' => ['__construct'], 'layer' => true]);
+        $connection = Double::instance(['extends' => Connection::class, 'methods' => ['__construct'], 'layer' => true]);
         $class::setConnection($connection);
         allow($class)->toReceive('::insert')->andReturn(1);
         expect($class)->toReceive('::insert')->once();

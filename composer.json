@@ -29,6 +29,6 @@
     "ext-pdo": "*"
   },
   "require-dev": {
-    "kahlan/kahlan": "^5.2.2"
+    "kahlan/kahlan": "^6.1.3"
   }
 }

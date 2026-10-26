@@ -6,6 +6,7 @@ namespace Gforces\ActiveRecord\Associations;
 use Attribute;
 use Gforces\ActiveRecord\ActiveRecordException;
 use Gforces\ActiveRecord\Association;
+use Gforces\ActiveRecord\AssociationException;
 use Gforces\ActiveRecord\Base;
 use Gforces\ActiveRecord\Connection;
 use Gforces\ActiveRecord\Expressions\Value;
@@ -51,6 +52,59 @@ class HasAndBelongsToMany extends Association
         return $relatedClass::findAllBySql($query);
     }
 
+    public function check(Base $object): void
+    {
+        if (!$this->property->isInitialized($object)) {
+            return;
+        }
+        $class = $this->relatedClass ?: $this->relatedClass();
+        if (!is_subclass_of($class, Base::class)) {
+            throw new AssociationException('Invalid related model class');
+        }
+        foreach ($this->property->getValue($object) as $related) {
+            if (!$related instanceof $class) {
+                throw new AssociationException('Invalid many-to-many item; expected ' . $class);
+            }
+            if (!$related->isNew) {
+                $related->relationId();
+            } else {
+                $this->checkInverse($object, $related);
+            }
+        }
+    }
+
+    private function mapping(Base $object, string $relatedClass): array
+    {
+        $ownTable = $object::getTableName();
+        $relatedTable = $relatedClass::getTableName();
+        return [
+            $this->getIntermediateTableName($object, $ownTable, $relatedTable),
+            $this->callablePropertyValue($this->objectForeignKey, $object) ?: $ownTable . '_id',
+            $this->callablePropertyValue($this->relatedForeignKey, $object) ?: $relatedTable . '_id',
+        ];
+    }
+
+    private function checkInverse(Base $object, Base $related): void
+    {
+        [$table, $ownKey, $relatedKey] = $this->mapping($object, $related::class);
+        foreach (Association::getAll($related::class) as $inverse) {
+            if (!$inverse instanceof self || !$inverse->property->isInitialized($related)) {
+                continue;
+            }
+            $class = $inverse->relatedClass ?: $inverse->relatedClass();
+            if (!$object instanceof $class || $inverse->mapping($related, $class) !== [$table, $relatedKey, $ownKey]) {
+                continue;
+            }
+            foreach ($inverse->property->getValue($related) as $item) {
+                if ($item === $object || ($item instanceof Base && !$item->isNew && !$object->isNew
+                    && $item::class === $object::class && $item->relationId() === $object->relationId())) {
+                    continue 2;
+                }
+            }
+            throw new AssociationException('Conflicting inverse many-to-many collection');
+        }
+    }
+
     /**
      * @throws ActiveRecordException
      * @throws ValidationException
@@ -60,6 +114,7 @@ class HasAndBelongsToMany extends Association
         if (!$this->property->isInitialized($object)) {
             return;
         }
+        $this->check($object);
         $connection = $object::getConnection();
 
         $relatedClass = $this->relatedClass ?: $this->getClassFromArrayShape($this->property);
@@ -76,7 +131,7 @@ class HasAndBelongsToMany extends Association
         $relatedForeignKey = $connection->quoteIdentifier($relatedForeignKey);
         $objectId = $this->quoteValue($connection, $object->id);
 
-        $existingIds = $connection->query("SELECT $relatedForeignKey FROM $intermediateTable WHERE $objectForeignKey = $objectId")->fetchAll(PDO::FETCH_COLUMN);
+
         $newIds = [];
         foreach ($this->property->getValue($object) as $relatedObject) {
             if (!$relatedObject instanceof Base) {
@@ -85,8 +140,10 @@ class HasAndBelongsToMany extends Association
             if ($relatedObject->isNew) {
                 $relatedObject->save();
             }
-            $newIds[] = $relatedObject->id;
+            $newIds[] = $relatedObject->relationId();
         }
+        $newIds = array_values(array_unique($newIds));
+        $existingIds = $connection->query("SELECT $relatedForeignKey FROM $intermediateTable WHERE $objectForeignKey = $objectId")->fetchAll(PDO::FETCH_COLUMN);
         $insertValues = implode(',', array_map(fn($relatedObjectId) => "($objectId," . $this->quoteValue($connection, $relatedObjectId) . ")", array_diff($newIds, $existingIds)));
         $removeValues = implode(',', array_map(fn($id) => $this->quoteValue($connection, $id), array_diff($existingIds, $newIds)));
 
