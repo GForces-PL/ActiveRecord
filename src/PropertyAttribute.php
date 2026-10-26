@@ -32,10 +32,10 @@ abstract class PropertyAttribute
      * @return static[]
      * @throws ReflectionException
      */
-    public static function getAll(string $class): array
+    public static function getAll(string|Base $objectOrClass): array
     {
         $instances = [];
-        foreach (static::getProperties($class) as $property) {
+        foreach (static::getProperties($objectOrClass) as $property) {
             foreach (static::getPropertyAttributes($property) as $attribute) {
                 $instance = $attribute->newInstance();
                 $instance->property = $property;
@@ -46,14 +46,20 @@ abstract class PropertyAttribute
     }
 
     /**
+     *
      * @throws ActiveRecordException
      */
-    public static function get(string $class, string $propertyName): static
+    public static function get(string|Base $objectOrClass, string $propertyName): static
     {
-        try {
-            $property = new ReflectionProperty($class, $propertyName);
-        } catch (ReflectionException $e) {
-            throw new ActiveRecordException($e->getMessage(), $e->getCode(), $e);
+        $property = null;
+        for ($class = $objectOrClass; $property === null && $class; $class = get_parent_class($class)) {
+            if (property_exists($class, $propertyName)) {
+                $property = new ReflectionProperty($class, $propertyName);
+            }
+        }
+        $class = is_object($objectOrClass) ? $objectOrClass::class : $objectOrClass;
+        if ($property === null) {
+            throw new ActiveRecordException("$class::$propertyName does not exist");
         }
         $attribute = static::getPropertyAttributes($property)[0]
             ?? throw new ActiveRecordException("$class::$propertyName has no " . static::class . " attribute");
@@ -69,13 +75,14 @@ abstract class PropertyAttribute
      * @return array<string, ReflectionProperty>
      * @throws ReflectionException
      */
-    public static function getProperties(string $class): array
+    public static function getProperties(string|Base $objectOrClass): array
     {
         $properties = [];
-        $classReflection = new ReflectionClass($class);
-        foreach ($classReflection->getProperties() as $property) {
-            if (static::getPropertyAttributes($property)) {
-                $properties[$property->name] = $property;
+        for ($class = new ReflectionClass($objectOrClass); $class; $class = $class->getParentClass()) {
+            foreach ($class->getProperties() as $property) {
+                if (static::getPropertyAttributes($property)) {
+                    $properties[$property->name] ??= $property;
+                }
             }
         }
         return $properties;

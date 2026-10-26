@@ -6,6 +6,7 @@ use BackedEnum;
 use Closure;
 use DateMalformedStringException;
 use DateTime;
+use Error;
 use Gforces\ActiveRecord\Associations\BelongsTo;
 use Gforces\ActiveRecord\Connection\Providers\Provider;
 use Gforces\ActiveRecord\Expressions\Value;
@@ -352,6 +353,7 @@ class Base
         $object->rememberPrimaryKey((array) $attributes);
         $object->isNew = false;
         $object->__construct();
+        $object->unsetAssociations();
         return $object;
     }
 
@@ -392,11 +394,8 @@ class Base
         if (static::$keepAttributeChanges) {
             $this->originalValues = self::snapshotValue($this->getValues());
         }
-        /** @noinspection PhpUnhandledExceptionInspection */
-        foreach (Association::getProperties(static::class) as $property) {
-            Closure::bind(function () use ($property) { unset($this->{$property->getName()}); }, $this, $property->getDeclaringClass()->getName())();
-        }
-        foreach (BelongsTo::getAll(static::class) as $association) {
+        $this->unsetAssociations();
+        foreach (BelongsTo::getAll($this) as $association) {
             $association->remember($this);
         }
     }
@@ -450,7 +449,7 @@ class Base
     private function persist(bool $validate): void
     {
         $primaryKey = $this->isNew ? null : $this->getPersistedPrimaryKey();
-        $belongsTo = BelongsTo::getAll(static::class);
+        $belongsTo = BelongsTo::getAll($this);
         foreach ($belongsTo as $association) {
             $association->save($this);
         }
@@ -476,7 +475,7 @@ class Base
         foreach ($belongsTo as $association) {
             $association->remember($this);
         }
-        self::$saveContext->defer($this, Association::getAll(static::class));
+        self::$saveContext->defer($this, Association::getAll($this));
     }
 
     /**
@@ -493,7 +492,7 @@ class Base
     /** @internal Update only a relationship column, preserving other dirty fields. */
     public function persistForeignKey(string $attribute, mixed $value): void
     {
-        $property = Column::get(static::class, $attribute)->property;
+        $property = Column::get($this, $attribute)->property;
         if ($this->isNew) {
             $property->setValue($this, $value);
             $this->save();
@@ -510,7 +509,7 @@ class Base
         if (static::$keepAttributeChanges) {
             $this->originalValues[$attribute] = self::snapshotValue($value);
         }
-        foreach (BelongsTo::getAll(static::class) as $association) {
+        foreach (BelongsTo::getAll($this) as $association) {
             if ($association->foreignKey($this)->getName() === $attribute) {
                 $association->invalidate($this);
                 $association->remember($this);
@@ -525,7 +524,7 @@ class Base
             throw new AssociationException('Related object has not been saved');
         }
         $this->getPersistedPrimaryKey();
-        $id = Column::get(static::class, 'id')->property;
+        $id = Column::get($this, 'id')->property;
         if (!$id->isInitialized($this) || $id->getValue($this) === null) {
             throw new AssociationException('Related object requires an id');
         }
@@ -557,31 +556,48 @@ class Base
         return $this->persistedPrimaryKey;
     }
 
+    private function unsetAssociations(): void
+    {
+        foreach (Association::getProperties($this) as $property) {
+            Closure::bind(function () use ($property) {
+                unset($this->{$property->getName()});
+            }, $this, $property->getDeclaringClass()->getName())();
+        }
+    }
+
     public function &__get(string $name)
     {
+        $caller = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 2)[1]['class'] ?? null;
+        $class = static::class;
         try {
-            $association = Association::get(static::class, $name);
-            $value = $association->load($this);
-            $association->property->setValue($this, $value);
-            if ($association instanceof BelongsTo) {
-                $association->rememberLoaded($this);
-            }
-            $getter = Closure::bind(function &() use ($name) { return $this->$name; }, $this, $association->property->getDeclaringClass()->getName());
-            $result =& $getter();
+            $association = Association::get($this, $name);
+        } catch (ActiveRecordException) {
+            trigger_error("Undefined property: $class::$$name", E_USER_WARNING);
+            $result = null;
             return $result;
-        } catch (ActiveRecordException $e) {
-            $class = static::class;
-            $file = $e->getTrace()[2]['file'];
-            $line = $e->getTrace()[2]['line'];
-            trigger_error("Undefined property: $class::$$name in $file on line $line", E_USER_WARNING);
         }
+        if (!$this->isPropertyReadable($association->property, $caller)) {
+            throw new ActiveRecordException("Cannot access property $class::$$name");
+        }
+        $association->property->setValue($this, $association->load($this));
+        if ($association instanceof BelongsTo) {
+            $association->rememberLoaded($this);
+        }
+        $value = Closure::bind(function &() use ($name) { return $this->$name; }, $this, $association->property->getDeclaringClass()->getName())();
+        return $value;
+    }
+
+    private function isPropertyReadable(ReflectionProperty $property, ?string $caller): bool
+    {
+        $declaringClass = $property->getDeclaringClass()->getName();
+        return $property->isPublic() || $property->isPrivate() && $declaringClass === $caller || $property->isProtected() && is_a($caller, $declaringClass, true);
     }
 
     protected function validate(): void
     {
         $this->errors = [];
         /* @noinspection PhpUnhandledExceptionInspection Object is instance of Base and exists */
-        foreach (Validator::getAll(static::class) as $validator) {
+        foreach (Validator::getAll($this) as $validator) {
             try {
                 $validator->perform($this);
             } catch (ValidationException $error) {
@@ -604,7 +620,7 @@ class Base
         if (!static::$keepAttributeChanges) {
             throw new ActiveRecordException('Changes are not stored for this object');
         }
-        $property = Column::get(static::class, $attribute)->property;
+        $property = Column::get($this, $attribute)->property;
         if (!$property->isInitialized($this)) {
             return array_key_exists($attribute, $this->originalValues);
         }

@@ -28,7 +28,7 @@ final class AssociationSaveContext
             return;
         }
         $this->checked->offsetSet($object);
-        foreach (Association::getAll($object::class) as $association) {
+        foreach (Association::getAll($object) as $association) {
             $association->check($object);
             foreach ($association->newRelatedObjects($object) as $related) {
                 $this->check($related);

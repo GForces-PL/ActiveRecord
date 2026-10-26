@@ -87,7 +87,7 @@ class HasAndBelongsToMany extends Association
     private function checkInverse(Base $object, Base $related): void
     {
         [$table, $ownKey, $relatedKey] = $this->mapping($object, $related::class);
-        foreach (Association::getAll($related::class) as $inverse) {
+        foreach (Association::getAll($related) as $inverse) {
             if (!$inverse instanceof self || !$inverse->property->isInitialized($related)) {
                 continue;
             }

@@ -46,7 +46,7 @@ abstract class Association extends PropertyAttribute
         if (!$child->isNew) {
             $child->relationId();
         }
-        foreach (BelongsTo::getAll($child::class) as $inverse) {
+        foreach (BelongsTo::getAll($child) as $inverse) {
             if ($inverse->foreignKey($child)->getName() !== $foreignKey) {
                 continue;
             }
