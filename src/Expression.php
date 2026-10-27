@@ -52,7 +52,12 @@ abstract class Expression implements Stringable
     private static function buildExpressions(array $expressions): array
     {
         return array_map(
-            fn($key, $value) => is_string($key) ? self::buildForAttribute($key, $value) : ($value instanceof Expression ? $value : new Simple($value)),
+            fn($key, $value) => match (true) {
+                is_string($key) => self::buildForAttribute($key, $value),
+                is_array($value) => self::and(self::buildExpressions($value)),
+                $value instanceof Expression => $value,
+                default => new Simple($value)
+            },
             array_keys($expressions),
             array_values($expressions)
         );

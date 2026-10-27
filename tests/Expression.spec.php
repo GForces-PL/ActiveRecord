@@ -99,6 +99,75 @@ describe('Expressions', function () {
             ]);
         });
     });
+    describe('Nested condition arrays', function () {
+        beforeEach(function () {
+            allow(Simple::class)->toReceive('::getConnection')->andReturn($this->connection);
+        });
+
+        it('combines nested groups with AND without losing repeated column names', function () {
+            expect(Simple::buildQuery([
+                ['id' => 7],
+                ['id' => PropertyExpression::notIn([8, 9])],
+            ]))->toBe('SELECT * FROM `fixtures_simple` WHERE `id` = 7 AND `id` NOT IN (8, 9)');
+        });
+
+        it('treats each array inside OR as an AND group', function () {
+            expect(Simple::buildQuery([
+                Expression::or([
+                    ['name' => 'Bill', 'age' => 5],
+                    ['name' => 'John', 'age' => 10],
+                ]),
+                'enabled' => true,
+            ]))->toBe("SELECT * FROM `fixtures_simple` WHERE (`name` = 'Bill' AND `age` = 5 OR `name` = 'John' AND `age` = 10) AND `enabled` = 1");
+        });
+
+        it('preserves explicit OR parentheses inside several levels of arrays', function () {
+            expect(Simple::buildQuery([
+                ['enabled' => true, [
+                    Expression::or([
+                        ['age' => PropertyExpression::lt(18)],
+                        ['age' => PropertyExpression::gt(65)],
+                    ]),
+                    ['name' => 'Bill'],
+                ]],
+            ]))->toBe("SELECT * FROM `fixtures_simple` WHERE `enabled` = 1 AND (`age` < 18 OR `age` > 65) AND `name` = 'Bill'");
+        });
+
+        it('keeps implicit IN and explicit IN and NOT IN as value lists inside groups', function () {
+            expect(Simple::buildQuery([
+                Expression::or([
+                    ['id' => [1, 2], 'name' => PropertyExpression::in(['Bill', 'John'])],
+                    ['id' => PropertyExpression::notIn([3, 4]), 'enabled' => false],
+                ]),
+            ]))->toBe("SELECT * FROM `fixtures_simple` WHERE (`id` IN (1, 2) AND `name` IN ('Bill', 'John') OR `id` NOT IN (3, 4) AND `enabled` = 0)");
+        });
+
+        it('negates an entire nested conjunction', function () {
+            expect(Simple::buildQuery([
+                Expression::not(Expression::and([
+                    ['id' => [1, 2]],
+                    ['enabled' => true, ['name' => 'Bill']],
+                ])),
+            ]))->toBe("SELECT * FROM `fixtures_simple` WHERE NOT (`id` IN (1, 2) AND `enabled` = 1 AND `name` = 'Bill')");
+        });
+
+        it('preserves empty value-list predicates within nested groups', function () {
+            expect(Simple::buildQuery([
+                Expression::or([
+                    ['id' => [], 'enabled' => true],
+                    ['id' => PropertyExpression::notIn([]), 'enabled' => false],
+                ]),
+            ]))->toBe('SELECT * FROM `fixtures_simple` WHERE (1 = 0 AND `enabled` = 1 OR 1 = 1 AND `enabled` = 0)');
+        });
+
+        it('keeps arrays inside IN and NOT IN as JSON values rather than condition groups', function () {
+            expect(Simple::buildQuery([
+                ['payload' => [[1, 2], [3, 4]]],
+                ['payload' => PropertyExpression::notIn([[5, 6]])],
+            ]))->toBe("SELECT * FROM `fixtures_simple` WHERE `payload` IN ('[1,2]', '[3,4]') AND `payload` NOT IN ('[5,6]')");
+        });
+    });
+
     describe('Negation and empty sets', function () {
         it('negates the entire conjunction', function () {
             $expression = Expression::not(Expression::and(['a' => 1, 'b' => 2]));

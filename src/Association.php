@@ -75,10 +75,7 @@ abstract class Association extends PropertyAttribute
     protected function removeMissing(string $class, string $foreignKey, mixed $ownerId, array $ids): void
     {
         // Keep both predicates even when the foreign key is also named "id".
-        $criteria = [
-            Expression::buildForAttribute($foreignKey, $ownerId),
-            Expression::buildForAttribute('id', notIn($ids))
-        ];
+        $criteria = [[$foreignKey => $ownerId], ['id' => notIn($ids)]];
         $property = Column::get($class, $foreignKey)->property;
         $result = $property->getType()->allowsNull()
             ? $class::updateAll([$foreignKey => null], $criteria)
