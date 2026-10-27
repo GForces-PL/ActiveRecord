@@ -66,8 +66,23 @@ abstract class Association extends PropertyAttribute
         }
     }
 
+    /**
+     * @param mixed[] $ids relation ids (Base::relationId(), the `id` column) of the related records to keep
+     */
     protected function removeMissing(string $class, string $foreignKey, mixed $ownerId, array $ids): void
     {
+        if ($foreignKey === 'id') {
+            // Shared primary key: the owner's id is the related row's id, so the owner condition alone selects
+            // its row. Combining it with `id NOT IN (...)` would collide on the same key and drop the owner condition.
+            // A related record present means its row is the owner's row: nothing to remove.
+            if ($ids) {
+                return;
+            }
+            if ($class::deleteAll(['id' => $ownerId]) === false) {
+                throw new AssociationException('Failed to remove missing related records');
+            }
+            return;
+        }
         $criteria = [$foreignKey => $ownerId, 'id' => PropertyExpression::notIn($ids)];
         $property = Column::get($class, $foreignKey)->property;
         $result = $property->getType()->allowsNull()
