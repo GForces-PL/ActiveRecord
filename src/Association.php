@@ -7,6 +7,7 @@ namespace Gforces\ActiveRecord;
 use Gforces\ActiveRecord\Associations\BelongsTo;
 use JetBrains\PhpStorm\ArrayShape;
 use ReflectionProperty;
+use function Gforces\ActiveRecord\PropertyExpressions\notIn;
 
 abstract class Association extends PropertyAttribute
 {
@@ -66,9 +67,18 @@ abstract class Association extends PropertyAttribute
         }
     }
 
+    /**
+     * @param class-string<Base> $class
+     * @throws ActiveRecordException
+     * @throws AssociationException
+     */
     protected function removeMissing(string $class, string $foreignKey, mixed $ownerId, array $ids): void
     {
-        $criteria = [$foreignKey => $ownerId, 'id' => PropertyExpression::notIn($ids)];
+        // Keep both predicates even when the foreign key is also named "id".
+        $criteria = [
+            Expression::buildForAttribute($foreignKey, $ownerId),
+            Expression::buildForAttribute('id', notIn($ids))
+        ];
         $property = Column::get($class, $foreignKey)->property;
         $result = $property->getType()->allowsNull()
             ? $class::updateAll([$foreignKey => null], $criteria)

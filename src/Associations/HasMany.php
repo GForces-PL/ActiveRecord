@@ -60,6 +60,9 @@ class HasMany extends Association
         }
     }
 
+    /**
+     * @throws AssociationException
+     */
     public function save(Base $object): void
     {
         if (!$this->property->isInitialized($object)) {
