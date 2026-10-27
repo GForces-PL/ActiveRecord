@@ -338,7 +338,7 @@ class Base
                     $type === 'array' => self::decodeJsonArray($value, $property),
                     is_a($type, Base::class, true) => self::createObject(new ReflectionClass($type), json_decode($value, flags: JSON_THROW_ON_ERROR)),
                     is_a($type, BackedEnum::class, true) => $type::from($value),
-                    is_a($type, UnitEnum::class, true) => $type::{$value},
+                    is_a($type, UnitEnum::class, true) => !$value && $reflectionType->allowsNull() ? null : $type::{$value},
                     is_a($type, DateTime::class, true) => $value === ''
                         ? throw new ActiveRecordException('Empty date strings are not allowed')
                         : new $type($value),
