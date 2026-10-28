@@ -4,7 +4,7 @@ namespace Gforces\ActiveRecord\Associations;
 
 use Attribute;
 use Closure;
-use Gforces\ActiveRecord\{Association, AssociationException, Base, Column};
+use Gforces\ActiveRecord\{ActiveRecordException, Association, AssociationException, Base, Column};
 use ReflectionProperty;
 use WeakMap;
 
@@ -56,7 +56,9 @@ class BelongsTo extends Association
         self::$states[$object] = $states;
     }
 
-    /** Whether the relation, rather than a changed FK, controls the assignment. */
+    /** Whether the relation, rather than a changed FK, controls the assignment.
+     * @throws AssociationException
+     */
     public function usesRelation(Base $object): bool
     {
         if (!$this->property->isInitialized($object)) {
@@ -85,6 +87,9 @@ class BelongsTo extends Association
             && $this->identity($this->property->getValue($object)) !== $original;
     }
 
+    /**
+     * @throws AssociationException
+     */
     public function check(Base $object): void
     {
         if ($this->usesRelation($object) && $this->property->getValue($object) === null
@@ -93,6 +98,9 @@ class BelongsTo extends Association
         }
     }
 
+    /**
+     * @throws AssociationException
+     */
     public function newRelatedObjects(Base $object): array
     {
         return $this->usesRelation($object) ? parent::newRelatedObjects($object) : [];
@@ -104,6 +112,9 @@ class BelongsTo extends Association
         Closure::bind(function () use ($name) { unset($this->$name); }, $object, $this->property->getDeclaringClass()->getName())();
     }
 
+    /**
+     * @throws ActiveRecordException
+     */
     public function load(Base $object): ?Base
     {
         $id = $this->foreignKey($object)->getValue($object);
@@ -115,6 +126,9 @@ class BelongsTo extends Association
         return $class::find($id);
     }
 
+    /**
+     * @throws AssociationException
+     */
     public function save(Base $object): void
     {
         if (!$this->property->isInitialized($object)) {
