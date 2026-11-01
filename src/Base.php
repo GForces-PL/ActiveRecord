@@ -459,7 +459,7 @@ class Base
         if ($this->isNew) {
             static::insert($values);
             /** @noinspection PhpUnhandledExceptionInspection static::class used */
-            Column::getAutoIncrementProperty(static::class)?->setValue($this, (int) static::getConnection()->lastInsertId());
+            Column::getAutoIncrementProperty($this)?->setValue($this, (int) static::getConnection()->lastInsertId());
             $this->rememberPrimaryKey();
             $this->isNew = false;
         } else {

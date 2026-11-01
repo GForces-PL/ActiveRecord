@@ -4,6 +4,7 @@
 namespace Gforces\ActiveRecord;
 
 use Attribute;
+use Gforces\ActiveRecord\Associations\BelongsTo;
 use ReflectionException;
 use ReflectionProperty;
 
@@ -16,20 +17,27 @@ class Column extends PropertyAttribute
 
     /**
      * @throws ReflectionException
+     * @throws ActiveRecordException
      */
-    public static function getAutoIncrementProperty(string $class): ?ReflectionProperty
+    public static function getAutoIncrementProperty(string|Base $objectOrClass): ?ReflectionProperty
     {
-        foreach (static::getAll($class) as $column) {
+        foreach (static::getAll($objectOrClass) as $column) {
             if ($column->autoIncrement) {
                 return $column->property;
             }
         }
         try {
-            $column = static::get($class, 'id');
-            if ($column->autoIncrement === null) {
-                return $column->property;
-            }
+            $column = static::get($objectOrClass, 'id');
         } catch (ActiveRecordException) {
+            return null;
+        }
+        if ($column->autoIncrement === null) {
+            foreach (BelongsTo::getAll($objectOrClass) as $association) {
+                if ($association->foreignKey($objectOrClass)->getName() === 'id') {
+                    return null;
+                }
+            }
+            return $column->property;
         }
         return null;
     }

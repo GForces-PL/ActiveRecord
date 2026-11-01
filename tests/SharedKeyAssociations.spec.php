@@ -9,15 +9,47 @@ describe('Association cleanup with a shared primary and foreign key', function (
         $this->sql = $sql = new ArrayObject();
         $connection = Double::instance(['extends' => Connection::class, 'methods' => ['__construct'], 'layer' => true]);
         allow($connection)->toReceive('quoteIdentifier')->andRun(fn($value) => "`$value`");
+        // MySQL returns zero after inserting a row without an AUTO_INCREMENT column.
+        allow($connection)->toReceive('lastInsertId')->andRun(fn() => count($sql) === 1 ? '42' : '0');
         allow($connection)->toReceive('exec')->andRun(function ($query) use ($sql) {
             $sql[] = $query;
             return 1;
         });
         SharedKeyOwner::setConnection($connection);
         SharedKeyDetails::setConnection($connection);
+        Fixtures\DynamicSharedKeyDetails::setConnection($connection);
         $this->hydrate = fn($class, $id) => (new ReflectionMethod(Base::class, 'createObject'))
             ->invoke(null, new ReflectionClass($class), (object) ['id' => $id]);
         $this->deletes = fn() => array_values(array_filter($sql->getArrayCopy(), fn($query) => str_starts_with($query, 'DELETE')));
+    });
+
+    it('uses the object to preserve a callable shared key during save', function () {
+        $owner = new SharedKeyOwner();
+        $owner->details = new Fixtures\DynamicSharedKeyDetails();
+        $owner->save();
+        expect($owner->id)->toBe(42);
+        expect($owner->details->id)->toBe(42);
+        expect($owner->details->isNew)->toBe(false);
+        expect($this->sql->getArrayCopy())->toContain(
+            'INSERT INTO `fixtures_dynamic_shared_key_details` (`id`) VALUES (42)'
+        );
+        expect(($this->deletes)())->toBe([
+            'DELETE FROM `fixtures_shared_key_details` WHERE `id` = 42 AND `id` NOT IN (42)',
+        ]);
+    });
+
+    it('preserves a new details shared ID through insertion and cleanup', function () {
+        $owner = new SharedKeyOwner();
+        $details = $owner->details;
+        $owner->save();
+        expect($owner->id)->toBe(42);
+        expect($details->id)->toBe(42);
+        expect($details->isNew)->toBe(false);
+        expect($this->sql->getArrayCopy())->toBe([
+            'INSERT INTO `fixtures_shared_key_owner` () VALUES ()',
+            'INSERT INTO `fixtures_shared_key_details` (`id`) VALUES (42)',
+            'DELETE FROM `fixtures_shared_key_details` WHERE `id` = 42 AND `id` NOT IN (42)',
+        ]);
     });
 
     it('keeps both owner and retained-ID constraints when saving HasOne for successive owners', function () {

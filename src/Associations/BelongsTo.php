@@ -18,9 +18,10 @@ class BelongsTo extends Association
     {
     }
 
-    public function foreignKey(Base $object): ReflectionProperty
+    public function foreignKey(string|Base $objectOrClass): ReflectionProperty
     {
-        return Column::get($object::class, $this->callablePropertyValue($this->foreignKey, $object) ?: $this->property->getName() . '_id')->property;
+        $object = $objectOrClass instanceof Base ? $objectOrClass : null;
+        return Column::get($objectOrClass, $this->callablePropertyValue($this->foreignKey, $object) ?: $this->property->getName() . '_id')->property;
     }
 
     private function keyState(Base $object): array

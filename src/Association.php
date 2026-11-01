@@ -99,9 +99,12 @@ abstract class Association extends PropertyAttribute
         return $this->property->getType()->getName();
     }
 
-    protected function callablePropertyValue(array|string $propertyValue, Base $object): string
+    protected function callablePropertyValue(array|string $propertyValue, ?Base $object = null): string
     {
         if (is_callable($propertyValue)) {
+            if ($object === null) {
+                throw new AssociationException('An object is required to resolve a callable association property');
+            }
             return call_user_func($propertyValue, $object);
         }
         return (string) $propertyValue;

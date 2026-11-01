@@ -38,7 +38,15 @@ $vehicle->save();
 Vehicle::find(1)->model;
 ```
 
-The $id property is auto_increment as default until any other column is marked as auto_increment, or it is disabled for `$id` column. 
+The `$id` property is auto-increment by default unless another column is explicitly
+marked as auto-increment, it is disabled for `$id`, or a `BelongsTo('id')` relation
+declares it as a foreign key. Explicit `#[Column(autoIncrement: true)]` takes
+precedence over this inference. `HasOne` and `HasMany` declarations do not disable
+the owner's auto-increment. `Column::getAutoIncrementProperty()` accepts a model
+object or class name. Saving passes the object, so callable foreign keys are
+resolved for that record. With a class name, resolving a callable throws an
+`AssociationException`; explicit auto-increment settings are checked first and
+do not require resolving relations.
 
 ```PHP
 use Gforces\ActiveRecord\Base;
